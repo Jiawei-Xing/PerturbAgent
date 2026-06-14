@@ -6,14 +6,15 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=160G
 #SBATCH --time=12:00:00
-#SBATCH --nodelist=bamgpu15,bamgpu18,bamgpu19
+# Cluster-specific node pin (CSHL Elzar); delete or edit for your site:
+##SBATCH --nodelist=bamgpu15,bamgpu18,bamgpu19
 #SBATCH --output=tb_adv_sharp.%j.out
 #SBATCH --error=tb_adv_sharp.%j.err
 
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-export PATH="/grid/siepel/home/xing/.conda/envs/bioreasoning/bin:$PATH"
+export PATH="${BIOREASONING_ENV:-$HOME/.conda/envs/bioreasoning}/bin:$PATH"  # override via BIOREASONING_ENV
 export HF_HUB_OFFLINE=1
 export VLLM_LOGGING_LEVEL=INFO
 module load cuda12.3/toolkit/12.3.2
