@@ -42,6 +42,10 @@ disjoint split, it finds a perturbation's STRING network partners that *do* appe
 train and pools their knockdown label distribution (analogy, not memorization). See
 [`docs/track_b_architecture.md`](docs/track_b_architecture.md) for the full design.
 
+<p align="center">
+  <img src="docs/img/track_b_architecture.png" alt="Track B adversarial-debate agent architecture" width="900">
+</p>
+
 **Result:** public leaderboard ≈ **0.569**, ~10/16 on Track B.
 
 ### Tracks A & C

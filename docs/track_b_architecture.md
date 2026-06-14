@@ -39,8 +39,8 @@ deepest config (`--rounds 2`: 8 advocate + 2 judge calls) stays far under the
 flowchart TD
     IN["TEST ROW<br/>(perturbation, gene)"] --> MOD
 
-    subgraph MOD["MODERATOR — gather_dossier() · ~7 deterministic tool calls"]
-        direction LR
+    subgraph MOD["MODERATOR · gather_dossier() · ~7 deterministic tool calls"]
+        direction TB
         T1["gene_info(pert)"]
         T2["gene_info(gene)"]
         T3["gene_classify(gene)"]
