@@ -46,7 +46,7 @@ train and pools their knockdown label distribution (analogy, not memorization). 
   <img src="docs/img/track_b_architecture.png" alt="Track B adversarial-debate agent architecture" width="900">
 </p>
 
-**Result:** public leaderboard ≈ **0.569**, ~10/16 on Track B.
+**Result:** public leaderboard ≈ **0.569** on Track B.
 
 ### Tracks A & C
 
