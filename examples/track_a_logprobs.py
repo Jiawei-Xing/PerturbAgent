@@ -152,6 +152,7 @@ def post_chat_completion(
     timeout_s: int,
     top_logprobs: int = 20,
     no_reasoning: bool = False,
+    reasoning_effort: str = "medium",
 ) -> Tuple[str, str, Dict[str, float], List[dict]]:
     """Call an OpenAI-compatible chat endpoint with logprobs.
 
@@ -179,7 +180,10 @@ def post_chat_completion(
         "temperature": 1.0,
         "top_p": 1.0,
         "seed": seed,
-        "max_tokens": max_tokens,
+        # GPT-OSS is a reasoning model: max_completion_tokens budgets reasoning
+        # + visible answer together (legacy max_tokens starves the answer).
+        "max_completion_tokens": max_tokens,
+        "reasoning_effort": reasoning_effort,
     }
     if no_reasoning:
         base_payload["chat_template_kwargs"] = {"enable_thinking": False}
@@ -416,6 +420,13 @@ def main() -> None:
              "chat_template_kwargs.enable_thinking=false. Produces calibrated "
              "logprobs instead of post-reasoning degenerate ones.",
     )
+    parser.add_argument(
+        "--reasoning-effort", default="medium",
+        choices=["low", "medium", "high"],
+        help="Reasoning effort sent to GPT-OSS (default: medium). The offline "
+             "benchmark found medium+logprobs best; logprobs stay graded "
+             "(non-degenerate) even at medium effort.",
+    )
     parser.add_argument("--debug", action="store_true",
                         help="Print debug info for logprob extraction.")
     parser.add_argument("--test-csv", type=Path, default=TEST_CSV)
@@ -507,6 +518,7 @@ def main() -> None:
                             timeout_s=args.timeout_s,
                             top_logprobs=args.top_logprobs,
                             no_reasoning=args.no_reasoning,
+                            reasoning_effort=args.reasoning_effort,
                         )
                     )
                     break
@@ -544,10 +556,14 @@ def main() -> None:
             cached[key_down] = pred_down
             cached[key_trace] = trace_text
             cached[f"tokens_seed{seed}"] = token_stats.get("total_tokens", 0.0)
+            cached[f"prompt_tokens_seed{seed}"] = token_stats.get("prompt_tokens", 0.0)
             cached[f"used_logprobs_seed{seed}"] = used_logprobs
 
         cached["tokens_used"] = sum(
             cached.get(f"tokens_seed{s}", 0.0) for s in SEEDS
+        )
+        cached["prompt_tokens"] = sum(
+            cached.get(f"prompt_tokens_seed{s}", 0.0) for s in SEEDS
         )
         cached["prediction_up"] = sum(
             cached.get(f"prediction_up_seed{s}", _DEFAULT_UP) for s in SEEDS
@@ -588,20 +604,24 @@ def main() -> None:
     for _, row in test_df.iterrows():
         rid = row["id"]
         c = cache["rows"].get(rid, {})
+        # Column order matches data/sample_submission_track_a.csv exactly:
+        # per-seed blocks (up, down, trace) interleaved, then token counts +
+        # model name. prompt_tokens is required metadata (omitting it scores 0).
         rows_out.append({
             "id": rid,
             "prediction_up": c.get("prediction_up", _DEFAULT_UP),
             "prediction_down": c.get("prediction_down", _DEFAULT_DOWN),
             "prediction_up_seed42": c.get("prediction_up_seed42", _DEFAULT_UP),
             "prediction_down_seed42": c.get("prediction_down_seed42", _DEFAULT_DOWN),
+            "reasoning_trace_seed42": c.get("reasoning_trace_seed42") or "none",
             "prediction_up_seed43": c.get("prediction_up_seed43", _DEFAULT_UP),
             "prediction_down_seed43": c.get("prediction_down_seed43", _DEFAULT_DOWN),
+            "reasoning_trace_seed43": c.get("reasoning_trace_seed43") or "none",
             "prediction_up_seed44": c.get("prediction_up_seed44", _DEFAULT_UP),
             "prediction_down_seed44": c.get("prediction_down_seed44", _DEFAULT_DOWN),
-            "reasoning_trace_seed42": c.get("reasoning_trace_seed42") or "none",
-            "reasoning_trace_seed43": c.get("reasoning_trace_seed43") or "none",
             "reasoning_trace_seed44": c.get("reasoning_trace_seed44") or "none",
             "tokens_used": int(c.get("tokens_used", 0)),
+            "prompt_tokens": int(c.get("prompt_tokens", 0)),
             "model_name": c.get("model_name", model_name),
         })
 

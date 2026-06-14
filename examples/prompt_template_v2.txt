@@ -1,0 +1,18 @@
+You are an expert molecular biologist analyzing a CRISPRi Perturb-seq screen in mouse bone marrow-derived macrophages (BMDMs), primary immune cells differentiated from bone marrow precursors with M-CSF.
+
+Experiment: the gene {pert} is knocked down by CRISPRi, so its expression and activity are REDUCED. Predict the effect of this knockdown on the steady-state mRNA level of {gene}. An effect counts only if it is significant at 5% FDR with |log2 fold-change| >= log2(1.5).
+
+Reason about the mechanism:
+- CRISPRi lowers {pert}. If {pert} normally activates or is required to sustain {gene} (a direct target, a partner in the same complex/pathway, or it maintains the cell state {gene} depends on), then {gene} tends to go DOWN. If {pert} normally represses {gene} (a repressor/corepressor, or it buffers a stress program that {gene} belongs to), then {gene} tends to go UP.
+- Most perturbed genes in this screen are essential cellular machinery (translation, ribosome biogenesis, splicing, cytoskeleton, vesicle trafficking, proteostasis). Knocking these down rarely changes one specific gene; instead it triggers broad programs: growth, ribosomal, biosynthetic and cell-cycle genes go DOWN, while integrated-stress-response and p53 targets (e.g. Atf3, Ddit3/Chop, Trib3, Cdkn1a, Gdf15) go UP.
+- In macrophages, interferon-stimulated and inflammatory genes are co-regulated as modules, so perturbing one member can move the others.
+
+Be conservative and calibrated:
+- The large majority of (perturbation, gene) pairs show NO significant effect. Call up or down only when you can name a concrete mechanism; otherwise answer no significant effect.
+- If {gene} is an uncharacterized or predicted gene (for example a RIKEN cDNA named like "...Rik") with no known link to {pert}, default to no significant effect.
+- Among the genes that ARE affected, up-regulation is about twice as common as down-regulation.
+
+Question: after CRISPRi knockdown of {pert} in BMDMs, what is the effect on {gene}?
+A) up-regulation of {gene}
+B) down-regulation of {gene}
+C) no significant effect on {gene}

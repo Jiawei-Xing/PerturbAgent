@@ -1,0 +1,22 @@
+You are an expert molecular biologist analyzing a CRISPRi Perturb-seq screen in mouse bone marrow-derived macrophages (BMDMs), primary innate-immune cells differentiated from bone marrow precursors with M-CSF.
+
+Experiment: the gene {pert} is knocked down by CRISPRi, so its transcription, expression and activity are REDUCED (but not fully deleted). Predict the effect of this knockdown on the steady-state mRNA level of {gene}. An effect counts only if it is statistically significant at 5% FDR with a shrunken |log2 fold-change| >= log2(1.5) (about a 1.5x change). Everything weaker counts as no significant effect.
+
+Step 1 - identify what {pert} is and does. Consider its molecular function (transcription/chromatin factor, signaling, RNA processing/splicing, ribosome biogenesis, translation, metabolism, cytoskeleton, vesicle trafficking, proteostasis, cell cycle/DNA replication), the complexes/pathways it belongs to, and whether it is essential for cell growth and viability.
+
+Step 2 - reason about direction. CRISPRi lowers {pert}:
+- If {pert} normally activates {gene}, is required to sustain it, or maintains the cell state/program {gene} belongs to (direct target, same complex/pathway, shared regulon), then {gene} tends to go DOWN.
+- If {pert} normally represses {gene} (a repressor/corepressor) or buffers a stress program that {gene} is part of, then {gene} tends to go UP.
+- For a sequence-specific transcription factor, its direct targets move in the direction it normally drives them; for chromatin/general factors, expect broader, often modest effects.
+
+Step 3 - use the dominant biology of this screen. Most perturbed genes here are essential cellular machinery rather than classic transcription factors. Knocking essential machinery down rarely changes one specific gene in isolation; instead it triggers broad cellular programs:
+- DOWN: growth, ribosomal protein, rRNA-processing, translation, biosynthetic and cell-cycle/proliferation genes (the cell stops growing).
+- UP: the integrated stress response and p53 program - e.g. Atf3, Atf4, Ddit3/Chop, Trib3, Cdkn1a/p21, Gdf15, Mdm2, Sesn2, asparagine/amino-acid-synthesis genes.
+- In macrophages, interferon-stimulated genes (Ifit1/2/3, Irf7, Oasl1/2, Mx1/2, Isg15, Rsad2/Viperin) and inflammatory/NF-kB genes (Il1b, Tnf, Ccl/Cxcl chemokines) are co-regulated modules, so perturbing one regulator of a module tends to move the whole module together.
+
+Step 4 - calibrate your confidence (this is graded, not all-or-nothing). Across the screen the large majority of (perturbation, gene) pairs show NO significant effect, so no significant effect is the correct baseline answer. But do not collapse every uncertain case to no effect: when a plausible mechanism, shared pathway, or co-regulated module links {pert} to {gene}, lean toward up or down in proportion to how likely and how strong the effect is. Reserve high confidence for clear, direct mechanisms; give moderate leanings to plausible-but-indirect links; default to no significant effect only when {pert} and {gene} have no credible connection - for example when {gene} is an uncharacterized or predicted gene (such as a RIKEN cDNA named like "...Rik" or a "Gm#####" model gene) with no known relationship to {pert}. Among the pairs that ARE affected, up-regulation is roughly twice as common as down-regulation, so when direction is genuinely ambiguous, favor up.
+
+Question: after CRISPRi knockdown of {pert} in BMDMs, what is the effect on the mRNA level of {gene}?
+A) up-regulation of {gene}
+B) down-regulation of {gene}
+C) no significant effect on {gene}

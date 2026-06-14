@@ -15,3 +15,27 @@ uv.lock
 outputs/finetuned_model/
 
 debug_api.py
+
+# --- HPC scratch (Slurm/SGE logs, vLLM server logs) ---
+*.out
+*.err
+*.log
+
+# --- large / re-creatable output artifacts ---
+# Per-row LLM caches and tool dossiers: large and regenerable from the scripts.
+outputs/**/responses_cache.json
+outputs/**/dossiers.json
+# Offline benchmark sweeps and seed-ensemble scratch runs (kept locally).
+outputs/benchmark*/
+outputs/track_b_adversarial_sharp_seed*/
+# Pre-sharp-judge Track B baseline (superseded by *_sharp).
+outputs/track_b_adversarial/
+# Redundant / oversized Track A artifacts (the .zip is the kept deliverable).
+outputs/track_a/default/
+outputs/track_a/submission.csv
+outputs/track_a/v2_logprobs/submission.csv
+outputs/track_a/v2_high_logprobs/submission.csv
+
+# --- cluster-specific job scripts live under slurm/ (see below) ---
+/run_*.slurm
+/run_*.s

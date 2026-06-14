@@ -9,6 +9,81 @@ Predict gene expression changes from CRISPRi perturbations in mouse bone marrow-
 ## Website
 Please checkout [the website](https://genentech.github.io/BioReasoningChallenge/) for full details!
 
+---
+
+## My submission (Jiawei Xing)
+
+> This repository is my competition entry, built on top of the organizers' starter kit
+> (upstream: [`genentech/bioreasoningchallenge`](https://github.com/genentech/bioreasoningchallenge)).
+> The sections below the divider are the original starter-kit docs; everything in
+> `examples/track_b_adversarial.py`, `examples/tools/`, the benchmark harness, and
+> `docs/track_b_architecture.md` is my own work.
+
+**Task.** Given a `(perturbation, gene)` pair, predict the ternary effect of CRISPRi
+knockdown on the target gene in mouse BMDMs (`up` / `down` / `none`). Scored as the mean
+of two micro-AUROCs: **DE** (any effect vs none) and **DIR** (up vs down among DE-positive
+rows). The train/test split is **disjoint on both the perturbation and gene axes**, so no
+target gene's behavior can be memorized from training — the model must reason about an
+unseen `(pert, gene)` interaction.
+
+### Track B — adversarial-debate agent (the centerpiece)
+
+Because the metric is two *independent* AUROCs, I decomposed the prediction into two
+matched debates instead of one classifier. Per row, a moderator deterministically gathers
+a shared evidence **dossier** via tools, then runs:
+
+- **Debate 1 → DE:** an EFFECT advocate vs a NULL advocate, scored by a judge → `P(DE)`
+- **Debate 2 → DIR:** an UP advocate vs a DOWN advocate → `P(up | DE)`
+- `prediction_up = P(DE)·P(up|DE)`, `prediction_down = P(DE)·(1−P(up|DE))`
+
+Judges emit *continuous calibrated* probabilities (AUROC rewards ranking, not hard
+labels). The key tool is `pathway_neighbors` — since exact lookups return nothing on the
+disjoint split, it finds a perturbation's STRING network partners that *do* appear in
+train and pools their knockdown label distribution (analogy, not memorization). See
+[`docs/track_b_architecture.md`](docs/track_b_architecture.md) for the full design.
+
+**Result:** public leaderboard ≈ **0.569**, ~10/16 on Track B.
+
+### Tracks A & C
+
+- **Track A (prompt-only, GPT-OSS-120B):** derive continuous probabilities from the
+  softmax over the answer-token logprobs (`track_a_logprobs.py`) rather than parsing a
+  hard label, then average over 3 seeds — turning AUROC's appetite for ranking into a
+  scoring lever.
+- **Track C (fine-tuning):** LoRA SFT of a <10B open model, served with vLLM at inference.
+
+### What I learned (incl. honest negatives)
+
+Rigor here is mostly about *not* chasing noise:
+
+- **DE detection is information-limited (~0.55), not prompt/effort/retrieval-limited.**
+  Sharpening the judge to suppress "famous-regulator" false positives was a real, isolated
+  win; literature RAG, a learned feature combiner, and higher judge reasoning-effort all
+  came back **negative/noise** in paired offline benchmarks.
+- **Seed ensembling looked good offline (+0.012) but lost on the public LB
+  (0.569 → 0.551).** That drop is *within* the public-LB noise band (SE ≈ ±0.025), so it's
+  a non-result — but the projected edge was below measurement resolution, so I reverted to
+  the single best seed. The only lever with genuine headroom is a perturbation foundation
+  model (STATE-class), which is a rules-gray-zone and out of scope here.
+
+Every claim above is backed by a disk-cached, paired offline benchmark
+(`examples/benchmark_track_b*.py`, run on a blinded train sample that simulates the
+disjoint split) — I never burned a full leaderboard submission to test a hypothesis.
+
+### Repo layout (my additions)
+
+| Path | What |
+|------|------|
+| `examples/track_b_adversarial.py` | the adversarial-debate agent (DSPy-free, text tool-calling) |
+| `examples/tools/` | dossier tools: `pathway_neighbors`, `gene_classify`, `base_rates`, `pubmed_search`, `rag_search` |
+| `examples/benchmark_track_b*.py` | blinded, paired, resumable offline benchmark harness |
+| `examples/build_ensemble_submission.py` | seed-ensemble merger (stdlib only) |
+| `examples/track_a_logprobs.py` | logprob-softmax Track A variant |
+| `docs/track_b_architecture.md` | architecture write-up |
+| `slurm/` | Slurm job scripts (CSHL Elzar; paths/env are cluster-specific) |
+| `outputs/track_*/` | shipped submission bundles (`.zip` + `prompt.txt`); per-row caches are gitignored |
+
+---
 
 ## Overview
 
@@ -210,6 +285,15 @@ Three example tools are provided in `examples/tools/`:
 | `train_data_lookup` | Local `train.csv` | Look up known labels for a perturbation or gene |
 | `gene_info` | [mygene.info](https://mygene.info) API | Retrieve gene annotations (summary, GO terms, pathways) |
 | `protein_interactions` | [STRING DB](https://string-db.org) API | Query protein-protein interaction partners |
+
+### Track B (adversarial-debate variant) -- `examples/track_b_adversarial.py`
+
+A metric-aligned debate agent: a moderator gathers a shared evidence dossier, then runs two
+adversarial sub-debates (EFFECT vs NULL → `P(DE)`; UP vs DOWN → `P(up|DE)`) whose judges emit
+calibrated probabilities combined as `prediction_up = P(DE)·P(up|DE)`. See the architecture
+write-up ([Markdown](docs/track_b_architecture.md) ·
+[rendered HTML](docs/track_b_architecture.html)) for the full diagram and design rationale.
+Validate configs offline first with `examples/benchmark_track_b.py`.
 
 ### Track B (multi-agent variant) -- `examples/track_b_multiagent.py`
 
