@@ -36,6 +36,9 @@ outputs/track_a/submission.csv
 outputs/track_a/v2_logprobs/submission.csv
 outputs/track_a/v2_high_logprobs/submission.csv
 
+# Cached GRN download (8MB, re-fetched by grn_feature_test.py); keep the small feature CSVs.
+outputs/grn_feature_test/omnipath_mouse.tsv
+
 # --- cluster-specific job scripts live under slurm/ (see below) ---
 /run_*.slurm
 /run_*.s

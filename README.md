@@ -64,6 +64,16 @@ Rigor here is mostly about *not* chasing noise:
   Sharpening the judge to suppress "famous-regulator" false positives was a real, isolated
   win; literature RAG, a learned feature combiner, and higher judge reasoning-effort all
   came back **negative/noise** in paired offline benchmarks.
+- **A gene regulatory network doesn't recover the indirect effects either.** The natural
+  next idea — propagate a knockdown through a directed GRN instead of needing a documented
+  (pert, gene) pair — is the right *representation* but fails in practice. A free CPU
+  feature test (`examples/grn_feature_test.py`: OmniPath signaling + CollecTRI, 70k edges)
+  scored network reachability/proximity at **DE AUROC 0.510 = chance** on full train (equal
+  to a pert-hubness control), and signed propagation gave **DIR 0.549 with a 95% CI that
+  crosses 0.50** on only 15% of rows. Two structural reasons: thin coverage (16% of pairs
+  reachable) and *reachability saturation* (in a dense network almost everything connects,
+  so topology can't discriminate without quantitative, macrophage-context edge weights —
+  which is the STATE gap again).
 - **Seed ensembling looked good offline (+0.012) but lost on the public LB
   (0.569 → 0.551).** That drop is *within* the public-LB noise band (SE ≈ ±0.025), so it's
   a non-result — but the projected edge was below measurement resolution, so I reverted to
@@ -81,6 +91,7 @@ disjoint split) — I never burned a full leaderboard submission to test a hypot
 | `examples/track_b_adversarial.py` | the adversarial-debate agent (DSPy-free, text tool-calling) |
 | `examples/tools/` | dossier tools: `pathway_neighbors`, `gene_classify`, `base_rates`, `pubmed_search`, `rag_search` |
 | `examples/benchmark_track_b*.py` | blinded, paired, resumable offline benchmark harness |
+| `examples/grn_feature_test.py` | GRN reachability/propagation feature test (the indirect-effect negative) |
 | `examples/build_ensemble_submission.py` | seed-ensemble merger (stdlib only) |
 | `examples/track_a_logprobs.py` | logprob-softmax Track A variant |
 | `docs/track_b_architecture.md` | architecture write-up |
