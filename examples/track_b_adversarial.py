@@ -74,6 +74,14 @@ _USE_RAG = _os.environ.get("MLGENX_USE_RAG", "0") == "1"
 # spread). Off by default; independent of MLGENX_USE_RAG so they A/B separately.
 _SHARP_JUDGE = _os.environ.get("MLGENX_SHARP_JUDGE", "0") == "1"
 
+# When MLGENX_SHARP_DIR=1, the numeric DIR judge uses the sharpened prompt
+# (up:down base-rate anchor + repressor/activator KD logic + stress-program
+# direction flags + analogue up:down ratio + spread). The DE judge got a real
+# +0.065 from sharpening; DIR -- the LLM's strongest component and equally
+# weighted in the metric -- had no sharpened prompt until this. Default off;
+# overridable per-call via predict_row(dir_sharp=...).
+_SHARP_DIR = _os.environ.get("MLGENX_SHARP_DIR", "0") == "1"
+
 TEST_CSV = ROOT / "data" / "test.csv"
 
 # Neutral fallbacks (training base rates) for rows where a judge returns no
@@ -220,6 +228,46 @@ JUDGE_DIR_SYSTEM_NUMERIC = (
     "exists. You are given an evidence dossier and two briefs (UP vs DOWN). "
     "Weigh them and output ONLY your calibrated probability that the target is "
     "UP-regulated (vs down), as an integer 0-100 in this exact format:\n"
+    "<prob>NN</prob>"
+)
+
+# Sharpened DIR judge (MLGENX_SHARP_DIR=1 / dir_sharp=True). The DE sharpening
+# anchored on the DE base rate and forced mechanistic-flag use; this does the
+# same for direction. The directional biology of this screen is comparatively
+# tractable (it's why DIR ~0.64 already beats DE ~0.55), so the gains are in
+# (a) anchoring on the up-skewed base rate, (b) the repressor/activator KD rule,
+# (c) actually using the stress-program direction flags the dossier surfaces,
+# and (d) spreading instead of clustering near 50.
+JUDGE_DIR_SYSTEM_NUMERIC_SHARP = (
+    "You are an impartial expert judge deciding the DIRECTION of a CRISPRi "
+    "knockdown's effect on the TARGET gene in mouse BMDMs, GIVEN that the target "
+    "is differentially expressed. You are given an evidence dossier and two "
+    "briefs (UP vs DOWN).\n\n"
+    "Base rate: among differentially expressed pairs in this screen, ~68% go UP "
+    "and ~32% go DOWN (knockdowns more often de-repress than reduce a target). "
+    "Start from 65 and move for target-specific directional evidence.\n\n"
+    "Core rule -- knockdown inverts the regulatory sign: if the perturbation "
+    "(or its pathway) normally REPRESSES the target, knocking it down RELIEVES "
+    "repression -> target UP; if it normally ACTIVATES/maintains the target, "
+    "knockdown -> target DOWN. State which relationship the evidence supports, "
+    "then apply this inversion.\n\n"
+    "Use the dossier's directional flags -- do NOT ignore them:\n"
+    "  - Target flagged ISR/ATF4 or p53 target (expected UP): these stress "
+    "programs are INDUCED when an essential perturbation triggers translational/"
+    "proteostasis or genotoxic/nucleolar stress -> push UP.\n"
+    "  - Target flagged ribosomal protein, ribosome-biogenesis, or cell-cycle/"
+    "proliferation (expected DOWN): the growth program is shut DOWN under that "
+    "same stress -> push DOWN.\n"
+    "  - Pathway-neighbor analogues report an up:down ratio among their "
+    "knockdowns -- lean toward the majority direction when it is consistent.\n"
+    "  - Direct literature stating the perturbation up- or down-regulates the "
+    "target dominates the above.\n\n"
+    "Calibrate and SPREAD: use the full 5-95 range. Reserve >80 (or <20) for a "
+    "clear repressor/activator relationship, a concordant stress flag, or direct "
+    "literature; stay near 55-70 when only the up-skewed base rate applies. Do "
+    "NOT cluster every answer near 50.\n\n"
+    "Output ONLY your calibrated probability that the target is UP-regulated "
+    "(vs down), as an integer 0-100 in this exact format:\n"
     "<prob>NN</prob>"
 )
 
@@ -507,6 +555,7 @@ def predict_row(
     timeout_s: int,
     dossier: Optional[tuple[Any, ...]] = None,
     seed: int = 42,
+    dir_sharp: Optional[bool] = None,
 ) -> dict:
     """Run the full debate for one (pert, gene). Returns a result dict.
 
@@ -594,8 +643,11 @@ def predict_row(
         trace["de_fallback"] = True
 
     # --- Judge 2: P(up | DE) ---
+    use_sharp_dir = _SHARP_DIR if dir_sharp is None else dir_sharp
     if judge_mode == "logprob":
         dir_sys = JUDGE_DIR_SYSTEM_LOGPROB
+    elif use_sharp_dir:
+        dir_sys = JUDGE_DIR_SYSTEM_NUMERIC_SHARP
     else:
         dir_sys = JUDGE_DIR_SYSTEM_NUMERIC
     dir_user = (
