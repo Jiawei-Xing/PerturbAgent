@@ -119,16 +119,31 @@ Rigor here is mostly about *not* chasing noise:
   confirms: x³, sqrt, logit, rank all leave DIR at 0.638, DE at 0.549). The only non-monotonic
   lever is breaking the integer-percent `<prob>` ties, but the **oracle ceiling** — a perfect,
   label-knowing tie-breaker — is only **DE +0.028 / DIR +0.017 (mean → 0.616)**, and a
-  *realistic* test-time tie-breaker needs a better-than-chance signal, which the disjoint split
-  doesn't afford (chance tie-breaking = no expected change). Post-processing the predictions is
-  a dead end; the gap needs a better base signal.
+  *realistic* test-time tie-breaker needs a better-than-chance signal. Post-processing the raw
+  predictions is a dead end on its own; the gain has to come from a better base signal.
+- **Embedding-similarity transfer is the real lever — gene-similarity kNN beats the LLM on
+  direction.** The disjoint split blocks gene-*identity* shortcuts but *not* functional-
+  *similarity* transfer: an unseen test gene can borrow the perturbation-response statistics of
+  functionally similar train genes. `examples/knn_transfer_test.py` does this with Geneformer
+  token embeddings, evaluated leave-one-out with disjoint masking (predict each train pair from
+  only the pairs sharing neither its pert nor its gene). **Gene-similarity carries it: DE ~0.55
+  [0.540, 0.568] and DIR ~0.62–0.63 [0.602, 0.650]** on full power (n≈2.9k DIR rows), robust
+  across the sharpening exponent — the DIR *beats the LLM judge's true level (~0.57)*.
+  Pert-similarity is near-chance (0.49/0.53) and mixing it in only dilutes the gene signal.
+  This is the learned, scaled version of the curated direction-sets (ISR→up, ribosomal→down)
+  that only reached 2% of rows by hand. It's the strongest, highest-coverage (~83%),
+  properly-validated external signal found — and with a *free, un-optimized* embedding;
+  GenePT-style text embeddings (the PerturbQA standard) would likely be stronger. This is almost
+  certainly how a Track B entry reaches ~0.652 with the same fixed model: an LLM-guided kNN
+  aggregator, not better prompting.
 
-The through-line: DE detection is information-limited at ~0.55 from every angle tested
-(prompt, retrieval, network, categories, and now a foundation model), because whether
-knockdown of pert *X* moves gene *Y* is a per-pair interaction that the disjoint gene axis
-and the indirect-effect bottleneck put out of reach. The only signal that ever cleared
-chance was Geneformer's in-silico *direction* — too weak and too low-coverage to close the
-leaderboard gap, but the one place a foundation model earned its keep.
+The through-line (revised): the LLM's *parametric* DE knowledge is information-limited at ~0.55,
+and so is every signal derived from it (prompt, retrieval, network, categories) or from a
+foundation model's in-silico perturbation. But the competition's *intended* signal is
+embedding-**similarity transfer** across the disjoint split, and that is real and unused in our
+shipped submission — gene-similarity kNN gives DE ~0.55 and DIR ~0.62, the latter beating the
+LLM judge. The headroom toward the leaderboard is fusing that kNN aggregator into the agent (and
+upgrading the embedding to GenePT), not more prompting or post-processing.
 
 Every claim above is backed by a disk-cached, paired offline benchmark
 (`examples/benchmark_track_b*.py`, run on a blinded train sample that simulates the
@@ -144,7 +159,8 @@ disjoint split) — I never burned a full leaderboard submission to test a hypot
 | `examples/grn_feature_test.py` | GRN reachability/propagation feature test (the indirect-effect negative) |
 | `examples/geneformer_probe.py` | Geneformer in-silico CRISPRi probe (foundation-model lever; weak-but-real DIR) |
 | `examples/calibration_ceiling_test.py` | proves calibration is a metric no-op + computes the tie-break oracle ceiling |
-| `examples/build_blend_submission.py` | blends Geneformer DIR into the LLM judge on covered rows (the one banked gain) |
+| `examples/build_blend_submission.py` | blends Geneformer DIR into the LLM judge on covered rows (tried, reverted) |
+| `examples/knn_transfer_test.py` | gene/pert embedding-similarity kNN transfer (the strongest lever: DIR ~0.62) |
 | `examples/build_ensemble_submission.py` | seed-ensemble merger (stdlib only) |
 | `examples/track_a_logprobs.py` | logprob-softmax Track A variant |
 | `docs/track_b_architecture.md` | architecture write-up |
