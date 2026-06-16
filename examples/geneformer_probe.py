@@ -266,6 +266,8 @@ def main():
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--max-len", type=int, default=MAX_LEN)
     ap.add_argument("--limit", type=int, default=0, help="debug: cap rows")
+    ap.add_argument("--predict", type=Path, default=None,
+                    help="label-less CSV (e.g. data/test.csv): write features, skip eval")
     ap.add_argument("--out", type=Path,
                     default=ROOT / "outputs" / "geneformer_probe")
     args = ap.parse_args()
@@ -281,9 +283,11 @@ def main():
           f"(<cls> + {len(ctx_ids)-2} genes + <eos>)")
 
     args.out.mkdir(parents=True, exist_ok=True)
+    runs = [("BLINDED 250-row sample", args.sample), ("FULL train", args.train)]
+    if args.predict is not None:
+        runs.append(("PREDICT", args.predict))
     all_res = {}
-    for tag, path in [("BLINDED 250-row sample", args.sample),
-                      ("FULL train", args.train)]:
+    for tag, path in runs:
         if not path.exists():
             print(f"[skip] {tag}: {path} not found")
             continue
@@ -293,8 +297,13 @@ def main():
         print(f"\n[run] {tag}: {len(df)} rows ...")
         feat = compute_features(model, df, ctx_ids, pos_of_ens, tok, nm_ci,
                                 device, batch=args.batch)
-        feat.to_csv(args.out / f"features_{tag.split()[0].lower()}.csv", index=False)
-        all_res[tag] = evaluate(feat, tag)
+        name = "test" if tag == "PREDICT" else tag.split()[0].lower()
+        feat.to_csv(args.out / f"features_{name}.csv", index=False)
+        if "label" in df.columns:                       # eval only if labeled
+            all_res[tag] = evaluate(feat, tag)
+        else:
+            print(f"  [features-only] {int(feat['covered'].sum())}/{len(feat)} covered "
+                  f"-> features_{name}.csv")
 
     (args.out / "results.json").write_text(json.dumps(all_res, indent=2))
     print(f"\n[done] -> {args.out/'results.json'}")

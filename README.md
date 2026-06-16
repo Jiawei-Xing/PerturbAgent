@@ -97,6 +97,15 @@ Rigor here is mostly about *not* chasing noise:
   its top genes, dropping lowly-expressed targets. A 0.562 DIR signal on a quarter of rows,
   against an LLM DIR judge already at ~0.55–0.64, lifts the aggregate by less than the
   public-LB noise band — real, but not gap-closing.
+- **...but Geneformer is strongest exactly where the LLM is weakest — so blending banks a
+  small real gain.** On the Geneformer-covered DE rows, the LLM direction judge collapses to
+  ~chance (0.505) while Geneformer holds at 0.61 — an *orthogonal*, not redundant, signal.
+  `examples/build_blend_submission.py` replaces the direction estimate on covered rows with
+  `(1-w)·P_up|DE_LLM + w·percentile(dir_dlogit)`, preserving P_DE exactly so DE is untouched
+  and only the up/down split of ~19% of rows moves. Offline (`benchmark_b_dir`) aggregate DIR
+  goes **0.545 → 0.563 (+0.017, robust across w=0.3–0.7)**, i.e. mean +0.009. That's below the
+  public-LB noise band and validated on the same rows that motivated it, so it's a low-risk,
+  positive-EV bet for the one-shot Private selection — not a guaranteed visible gain.
 - **Seed ensembling looked good offline (+0.012) but lost on the public LB
   (0.569 → 0.551).** That drop is *within* the public-LB noise band (SE ≈ ±0.025), so it's
   a non-result — but the projected edge was below measurement resolution, so I reverted to
@@ -133,6 +142,7 @@ disjoint split) — I never burned a full leaderboard submission to test a hypot
 | `examples/grn_feature_test.py` | GRN reachability/propagation feature test (the indirect-effect negative) |
 | `examples/geneformer_probe.py` | Geneformer in-silico CRISPRi probe (foundation-model lever; weak-but-real DIR) |
 | `examples/calibration_ceiling_test.py` | proves calibration is a metric no-op + computes the tie-break oracle ceiling |
+| `examples/build_blend_submission.py` | blends Geneformer DIR into the LLM judge on covered rows (the one banked gain) |
 | `examples/build_ensemble_submission.py` | seed-ensemble merger (stdlib only) |
 | `examples/track_a_logprobs.py` | logprob-softmax Track A variant |
 | `docs/track_b_architecture.md` | architecture write-up |

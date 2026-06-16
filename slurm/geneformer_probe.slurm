@@ -31,6 +31,7 @@ echo "[$(date)] running Geneformer in-silico perturbation probe ..."
 uv run --extra serve python examples/geneformer_probe.py \
     --sample outputs/benchmark_b_250/sample.csv \
     --train data/train.csv \
+    --predict data/test.csv \
     --batch 8 \
     --out outputs/geneformer_probe
 RC=$?
