@@ -42,3 +42,6 @@ outputs/grn_feature_test/omnipath_mouse.tsv
 # --- cluster-specific job scripts live under slurm/ (see below) ---
 /run_*.slurm
 /run_*.s
+outputs/geneformer_probe/model/
+outputs/geneformer_probe/ref/
+outputs/geneformer_probe/features_*.csv

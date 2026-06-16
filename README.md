@@ -85,11 +85,29 @@ Rigor here is mostly about *not* chasing noise:
   reachable) and *reachability saturation* (in a dense network almost everything connects,
   so topology can't discriminate without quantitative, macrophage-context edge weights —
   which is the STATE gap again).
+- **A perturbation foundation model is the strongest external lever — and still not
+  enough.** Geneformer V2-104M, run as an *in-silico CRISPRi* tool (delete the perturbation
+  gene from a macrophage context cell, read the target gene's shift; `examples/geneformer_probe.py`),
+  is the learned, context-conditioned version of the GRN propagation. It's the **first
+  external feature in this project to beat chance**: signed DIR (masked-LM logit shift) hits
+  **0.562, 95% CI [0.520, 0.603]** on the covered DE rows — the mechanism (delete a repressor
+  → target up) genuinely points the right way. But **DE stays at chance** (target-embedding
+  shift 0.477–0.483 on covered rows; the model doesn't predict *whether* a knockdown moves
+  the target), and coverage is only ~23% because the 4096-token context truncates the cell to
+  its top genes, dropping lowly-expressed targets. A 0.562 DIR signal on a quarter of rows,
+  against an LLM DIR judge already at ~0.55–0.64, lifts the aggregate by less than the
+  public-LB noise band — real, but not gap-closing.
 - **Seed ensembling looked good offline (+0.012) but lost on the public LB
   (0.569 → 0.551).** That drop is *within* the public-LB noise band (SE ≈ ±0.025), so it's
   a non-result — but the projected edge was below measurement resolution, so I reverted to
-  the single best seed. The only lever with genuine headroom is a perturbation foundation
-  model (STATE-class), which is a rules-gray-zone and out of scope here.
+  the single best seed.
+
+The through-line: DE detection is information-limited at ~0.55 from every angle tested
+(prompt, retrieval, network, categories, and now a foundation model), because whether
+knockdown of pert *X* moves gene *Y* is a per-pair interaction that the disjoint gene axis
+and the indirect-effect bottleneck put out of reach. The only signal that ever cleared
+chance was Geneformer's in-silico *direction* — too weak and too low-coverage to close the
+leaderboard gap, but the one place a foundation model earned its keep.
 
 Every claim above is backed by a disk-cached, paired offline benchmark
 (`examples/benchmark_track_b*.py`, run on a blinded train sample that simulates the
@@ -103,6 +121,7 @@ disjoint split) — I never burned a full leaderboard submission to test a hypot
 | `examples/tools/` | dossier tools: `pathway_neighbors`, `gene_classify`, `base_rates`, `pubmed_search`, `rag_search` |
 | `examples/benchmark_track_b*.py` | blinded, paired, resumable offline benchmark harness |
 | `examples/grn_feature_test.py` | GRN reachability/propagation feature test (the indirect-effect negative) |
+| `examples/geneformer_probe.py` | Geneformer in-silico CRISPRi probe (foundation-model lever; weak-but-real DIR) |
 | `examples/build_ensemble_submission.py` | seed-ensemble merger (stdlib only) |
 | `examples/track_a_logprobs.py` | logprob-softmax Track A variant |
 | `docs/track_b_architecture.md` | architecture write-up |
