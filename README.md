@@ -161,6 +161,7 @@ disjoint split) — I never burned a full leaderboard submission to test a hypot
 | `examples/calibration_ceiling_test.py` | proves calibration is a metric no-op + computes the tie-break oracle ceiling |
 | `examples/build_blend_submission.py` | blends Geneformer DIR into the LLM judge on covered rows (tried, reverted) |
 | `examples/knn_transfer_test.py` | gene/pert embedding-similarity kNN transfer (the strongest lever: DIR ~0.62) |
+| `examples/build_knn_fusion_submission.py` | fuse the gene-sim kNN aggregator into the LLM agent (offline mean +0.034) |
 | `examples/build_ensemble_submission.py` | seed-ensemble merger (stdlib only) |
 | `examples/track_a_logprobs.py` | logprob-softmax Track A variant |
 | `docs/track_b_architecture.md` | architecture write-up |
@@ -464,17 +465,18 @@ uv run --extra serve python examples/track_c_finetune.py \
 
 Use the example scripts above or write your own. Each script outputs a zip file ready for Kaggle upload.
 
-> **My best Track B bundle: `outputs/track_b_adversarial_sharp/submission.zip`** (seed-42,
-> sharp DE judge, `--judge-mode numeric --rounds 1`; public LB ~0.569).
+> **My best Track B bundle: `outputs/track_b_adversarial_knn_fusion/submission.zip`** — the
+> seed-42 sharp base fused with the gene-similarity kNN aggregator (`examples/build_knn_fusion_submission.py`,
+> w_de=w_dir=0.5). Offline (benchmark_b_dir, n=499/223 DE) it lifts **mean 0.568 → 0.602
+> (+0.034)**, improving *both* DE (0.591→0.611) and DIR (0.545→0.594). Unlike the earlier blend
+> this gain is **above** the public-LB noise band (±0.025), broad (84% coverage, both
+> components, monotonic in weight), and rests on a kNN signal independently LOO-validated at
+> high power (DIR 0.62, n≈2.9k). Un-blended fallback: `outputs/track_b_adversarial_sharp/submission.zip`
+> (public LB ~0.569). To regenerate: `uv run python examples/build_knn_fusion_submission.py`.
 >
-> The Geneformer×LLM direction blend (`outputs/track_b_adversarial_blend/`,
-> `examples/build_blend_submission.py`) was a principled bet — offline it lifted aggregate DIR
-> +0.017 (mean +0.009) by exploiting that Geneformer is strongest where the LLM judge is
-> weakest — but on the **public LB it scored 0.558 vs the base's 0.569**. That −0.011 is inside
-> the public-LB noise band (SE ≈ ±0.025), so it's not proof the blend hurts the Private set,
-> but the offline edge was below public resolution and validated on the same rows that
-> motivated it, so the concrete public number wins: **use the un-blended base.** (The blend
-> bundle is kept for the record; same outcome as the seed ensemble.)
+> *(Earlier negatives, kept for the record: the Geneformer×LLM blend
+> `outputs/track_b_adversarial_blend/` scored 0.558 vs 0.569 on public — offline +0.009 was
+> below noise and validated in-sample; the seed ensemble likewise lost within noise.)*
 
 ### Step 2: Verify your submission
 
@@ -512,7 +514,8 @@ prompt.txt
 ### Step 4: Upload to Kaggle
 
 Go to the competition page on Kaggle and upload your zip file — for Track B, my pick is
-`outputs/track_b_adversarial_sharp/submission.zip` (public LB ~0.569; see the callout in Step 1).
+`outputs/track_b_adversarial_knn_fusion/submission.zip` (offline +0.034 over the 0.569 base;
+see the callout in Step 1).
 
 ## Evaluation
 
