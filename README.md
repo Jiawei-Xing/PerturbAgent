@@ -101,6 +101,16 @@ Rigor here is mostly about *not* chasing noise:
   (0.569 → 0.551).** That drop is *within* the public-LB noise band (SE ≈ ±0.025), so it's
   a non-result — but the projected edge was below measurement resolution, so I reverted to
   the single best seed.
+- **Probability recalibration cannot move the score, and tie-breaking has almost no
+  ceiling.** The metric is AUROC, which is invariant to any monotonic transform — and it
+  decouples (DE ranked by `pred_up+pred_down=P_DE`, DIR by `pred_up/(pred_up+pred_down)=P_up|DE`),
+  so Platt / isotonic / temperature scaling are provable no-ops (`examples/calibration_ceiling_test.py`
+  confirms: x³, sqrt, logit, rank all leave DIR at 0.638, DE at 0.549). The only non-monotonic
+  lever is breaking the integer-percent `<prob>` ties, but the **oracle ceiling** — a perfect,
+  label-knowing tie-breaker — is only **DE +0.028 / DIR +0.017 (mean → 0.616)**, and a
+  *realistic* test-time tie-breaker needs a better-than-chance signal, which the disjoint split
+  doesn't afford (chance tie-breaking = no expected change). Post-processing the predictions is
+  a dead end; the gap needs a better base signal.
 
 The through-line: DE detection is information-limited at ~0.55 from every angle tested
 (prompt, retrieval, network, categories, and now a foundation model), because whether
@@ -122,6 +132,7 @@ disjoint split) — I never burned a full leaderboard submission to test a hypot
 | `examples/benchmark_track_b*.py` | blinded, paired, resumable offline benchmark harness |
 | `examples/grn_feature_test.py` | GRN reachability/propagation feature test (the indirect-effect negative) |
 | `examples/geneformer_probe.py` | Geneformer in-silico CRISPRi probe (foundation-model lever; weak-but-real DIR) |
+| `examples/calibration_ceiling_test.py` | proves calibration is a metric no-op + computes the tie-break oracle ceiling |
 | `examples/build_ensemble_submission.py` | seed-ensemble merger (stdlib only) |
 | `examples/track_a_logprobs.py` | logprob-softmax Track A variant |
 | `docs/track_b_architecture.md` | architecture write-up |
