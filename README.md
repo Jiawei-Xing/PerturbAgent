@@ -64,6 +64,17 @@ Rigor here is mostly about *not* chasing noise:
   Sharpening the judge to suppress "famous-regulator" false positives was a real, isolated
   win; literature RAG, a learned feature combiner, and higher judge reasoning-effort all
   came back **negative/noise** in paired offline benchmarks.
+- **Sharpening the *direction* judge the same way did not transfer — the DIR component is
+  already near its ceiling.** The sharp-DE judge gave +0.065, so the natural next move was a
+  matching `JUDGE_DIR_SYSTEM_NUMERIC_SHARP` (up:down base-rate anchor, knockdown
+  sign-inversion rule, forced mechanistic-flag use). A 500-row paired A/B
+  (`examples/benchmark_track_b_dir.py`) gave **DIR +0.016, mean −0.005** — and that +0.016
+  is *inside the noise floor*: DE AUROC should be identical across the two arms by
+  construction (the DIR judge can't touch `pred_up+pred_down = P(DE)`), yet it drifted 0.026
+  from sampling alone. The paired P(up|DE) check explains why: the sharp prompt pushed both
+  true-up (+0.083) and true-down (+0.077) rows up toward its anchor, so the *level* moved but
+  the discriminating up−down separation barely did (+0.007) and spread actually shrank. It
+  recalibrates, it doesn't discriminate — so it stays gated off (`MLGENX_SHARP_DIR=0`).
 - **A gene regulatory network doesn't recover the indirect effects either.** The natural
   next idea — propagate a knockdown through a directed GRN instead of needing a documented
   (pert, gene) pair — is the right *representation* but fails in practice. A free CPU
