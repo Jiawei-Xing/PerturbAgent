@@ -144,16 +144,27 @@ Rigor here is mostly about *not* chasing noise:
   genes, which without mean-centering inverts the direction signal to a spurious DIR 0.17.)
   Mean-centering Geneformer itself lifts raw kNN DIR 0.629→0.644 but only +0.002 at the fusion
   level — sub-noise, so left off to keep the 0.606 submission reproducible.
+- **A trained classifier (GenePert-style) ties the kNN, doesn't beat it.** Logistic regression
+  and a 1-hidden-layer MLP on [pert ⊕ gene ⊕ pert·gene] Geneformer embeddings
+  (`examples/trained_classifier_test.py`, 5-fold doubly-disjoint CV) top out at DE ~0.55 / DIR
+  ~0.62 — statistically indistinguishable from the kNN (CIs overlap). Pert features don't help
+  (pert-similarity is chance); the MLP's interaction term buys nothing over gene-only beyond
+  noise. The embedding's information content is the ceiling and the non-parametric kNN already
+  saturates it, so a parametric model can't extract more. The remaining path to ~0.652 is a
+  genuinely better gene representation (scGPT/UCE/co-expression from the actual screen) or the
+  source data itself — not a better model on these features.
 
 The through-line (revised): the LLM's *parametric* DE knowledge is information-limited at ~0.55,
 and so is every signal derived from it (prompt, retrieval, network, categories) or from a
 foundation model's in-silico perturbation. But the competition's *intended* signal is
 embedding-**similarity transfer** across the disjoint split: gene-similarity kNN gives DE ~0.55
 and DIR ~0.62 (beating the LLM judge), and fusing it into the agent took the public LB from 0.569
-to **0.606** — the one confirmed, decisive gain. Pushing further (GenePT, ensembling, weight/
-centering tweaks) hit diminishing, sub-noise returns; closing the rest of the way to ~0.652
-likely needs a better embedding than Geneformer/GenePT or a trained aggregator (GenePert-style),
-not more prompting or post-processing.
+to **0.606** — the one confirmed, decisive gain. Pushing further hit diminishing, sub-noise returns:
+GenePT embeddings are weaker than Geneformer, a trained GenePert-style classifier only ties the
+kNN, and weight/centering tweaks are below the LB noise band. The embedding is the ceiling;
+closing the rest of the way to ~0.652 needs a genuinely better gene representation (scGPT / UCE /
+co-expression from the screen) or the source screen data — not more prompting, post-processing,
+or modeling on these features.
 
 Every claim above is backed by a disk-cached, paired offline benchmark
 (`examples/benchmark_track_b*.py`, run on a blinded train sample that simulates the
@@ -171,7 +182,8 @@ disjoint split) — I never burned a full leaderboard submission to test a hypot
 | `examples/calibration_ceiling_test.py` | proves calibration is a metric no-op + computes the tie-break oracle ceiling |
 | `examples/build_blend_submission.py` | blends Geneformer DIR into the LLM judge on covered rows (tried, reverted) |
 | `examples/knn_transfer_test.py` | gene/pert embedding-similarity kNN transfer (the strongest lever: DIR ~0.62) |
-| `examples/build_knn_fusion_submission.py` | fuse the gene-sim kNN aggregator into the LLM agent (offline mean +0.034) |
+| `examples/build_knn_fusion_submission.py` | fuse the gene-sim kNN aggregator into the LLM agent (LB 0.569→0.606) |
+| `examples/trained_classifier_test.py` | GenePert-style trained classifier (ties the kNN, no gain) |
 | `examples/build_ensemble_submission.py` | seed-ensemble merger (stdlib only) |
 | `examples/track_a_logprobs.py` | logprob-softmax Track A variant |
 | `docs/track_b_architecture.md` | architecture write-up |
