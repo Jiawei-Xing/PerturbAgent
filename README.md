@@ -446,6 +446,16 @@ uv run --extra serve python examples/track_c_finetune.py \
 
 Use the example scripts above or write your own. Each script outputs a zip file ready for Kaggle upload.
 
+> **My best Track B bundle: `outputs/track_b_adversarial_blend/submission.zip`.** It's the
+> seed-42 sharp-judge submission (public LB ~0.569) with the Geneformer×LLM direction blend
+> applied to the ~19% of rows Geneformer covers (`examples/build_blend_submission.py`; P_DE is
+> preserved exactly, so DE is untouched and only the up/down split moves). Offline it lifts
+> aggregate DIR +0.017 (mean +0.009) — a small, positive-EV bet for the one-shot Private pick,
+> below the public-LB noise band. If you'd rather not bet below noise, the un-blended base is
+> `outputs/track_b_adversarial_sharp/submission.zip`. To regenerate the blend:
+> `sbatch slurm/geneformer_probe.slurm` (writes `features_test.csv`) then
+> `uv run python examples/build_blend_submission.py`.
+
 ### Step 2: Verify your submission
 
 Each track requires specific columns in `submission.csv`:
@@ -481,7 +491,8 @@ prompt.txt
 
 ### Step 4: Upload to Kaggle
 
-Go to the competition page on Kaggle and upload your zip file.
+Go to the competition page on Kaggle and upload your zip file — for Track B, my pick is
+`outputs/track_b_adversarial_blend/submission.zip` (see the callout in Step 1).
 
 ## Evaluation
 
