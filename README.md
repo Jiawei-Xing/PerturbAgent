@@ -97,15 +97,17 @@ Rigor here is mostly about *not* chasing noise:
   its top genes, dropping lowly-expressed targets. A 0.562 DIR signal on a quarter of rows,
   against an LLM DIR judge already at ~0.55–0.64, lifts the aggregate by less than the
   public-LB noise band — real, but not gap-closing.
-- **...but Geneformer is strongest exactly where the LLM is weakest — so blending banks a
-  small real gain.** On the Geneformer-covered DE rows, the LLM direction judge collapses to
-  ~chance (0.505) while Geneformer holds at 0.61 — an *orthogonal*, not redundant, signal.
-  `examples/build_blend_submission.py` replaces the direction estimate on covered rows with
-  `(1-w)·P_up|DE_LLM + w·percentile(dir_dlogit)`, preserving P_DE exactly so DE is untouched
-  and only the up/down split of ~19% of rows moves. Offline (`benchmark_b_dir`) aggregate DIR
-  goes **0.545 → 0.563 (+0.017, robust across w=0.3–0.7)**, i.e. mean +0.009. That's below the
-  public-LB noise band and validated on the same rows that motivated it, so it's a low-risk,
-  positive-EV bet for the one-shot Private selection — not a guaranteed visible gain.
+- **...and blending it into the LLM looked promising offline but lost on the public LB.** On
+  the Geneformer-covered DE rows the LLM direction judge collapses to ~chance (0.505) while
+  Geneformer holds at 0.61 — apparently *orthogonal*, so `examples/build_blend_submission.py`
+  replaces the direction estimate on covered rows with `(1-w)·P_up|DE_LLM + w·percentile(dir_dlogit)`,
+  preserving P_DE exactly (DE untouched, only ~19% of rows' up/down split moves). Offline
+  (`benchmark_b_dir`) aggregate DIR went **0.545 → 0.563 (+0.017, robust across w=0.3–0.7)** —
+  but on the **public LB it scored 0.558 vs the base 0.569**. The −0.011 is within the noise
+  band (SE ≈ ±0.025), yet the offline edge was below public resolution and validated in-sample
+  (the same 59 rows), so the concrete public number wins and I reverted to the base. The
+  complementarity was likely a small-n artifact that didn't survive the real test set — same
+  story as the seed ensemble.
 - **Seed ensembling looked good offline (+0.012) but lost on the public LB
   (0.569 → 0.551).** That drop is *within* the public-LB noise band (SE ≈ ±0.025), so it's
   a non-result — but the projected edge was below measurement resolution, so I reverted to
@@ -446,15 +448,17 @@ uv run --extra serve python examples/track_c_finetune.py \
 
 Use the example scripts above or write your own. Each script outputs a zip file ready for Kaggle upload.
 
-> **My best Track B bundle: `outputs/track_b_adversarial_blend/submission.zip`.** It's the
-> seed-42 sharp-judge submission (public LB ~0.569) with the Geneformer×LLM direction blend
-> applied to the ~19% of rows Geneformer covers (`examples/build_blend_submission.py`; P_DE is
-> preserved exactly, so DE is untouched and only the up/down split moves). Offline it lifts
-> aggregate DIR +0.017 (mean +0.009) — a small, positive-EV bet for the one-shot Private pick,
-> below the public-LB noise band. If you'd rather not bet below noise, the un-blended base is
-> `outputs/track_b_adversarial_sharp/submission.zip`. To regenerate the blend:
-> `sbatch slurm/geneformer_probe.slurm` (writes `features_test.csv`) then
-> `uv run python examples/build_blend_submission.py`.
+> **My best Track B bundle: `outputs/track_b_adversarial_sharp/submission.zip`** (seed-42,
+> sharp DE judge, `--judge-mode numeric --rounds 1`; public LB ~0.569).
+>
+> The Geneformer×LLM direction blend (`outputs/track_b_adversarial_blend/`,
+> `examples/build_blend_submission.py`) was a principled bet — offline it lifted aggregate DIR
+> +0.017 (mean +0.009) by exploiting that Geneformer is strongest where the LLM judge is
+> weakest — but on the **public LB it scored 0.558 vs the base's 0.569**. That −0.011 is inside
+> the public-LB noise band (SE ≈ ±0.025), so it's not proof the blend hurts the Private set,
+> but the offline edge was below public resolution and validated on the same rows that
+> motivated it, so the concrete public number wins: **use the un-blended base.** (The blend
+> bundle is kept for the record; same outcome as the seed ensemble.)
 
 ### Step 2: Verify your submission
 
@@ -492,7 +496,7 @@ prompt.txt
 ### Step 4: Upload to Kaggle
 
 Go to the competition page on Kaggle and upload your zip file — for Track B, my pick is
-`outputs/track_b_adversarial_blend/submission.zip` (see the callout in Step 1).
+`outputs/track_b_adversarial_sharp/submission.zip` (public LB ~0.569; see the callout in Step 1).
 
 ## Evaluation
 
