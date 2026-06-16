@@ -45,3 +45,4 @@ outputs/grn_feature_test/omnipath_mouse.tsv
 outputs/geneformer_probe/model/
 outputs/geneformer_probe/ref/
 outputs/geneformer_probe/features_*.csv
+outputs/genept/

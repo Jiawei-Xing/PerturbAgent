@@ -131,19 +131,29 @@ Rigor here is mostly about *not* chasing noise:
   across the sharpening exponent — the DIR *beats the LLM judge's true level (~0.57)*.
   Pert-similarity is near-chance (0.49/0.53) and mixing it in only dilutes the gene signal.
   This is the learned, scaled version of the curated direction-sets (ISR→up, ribosomal→down)
-  that only reached 2% of rows by hand. It's the strongest, highest-coverage (~83%),
-  properly-validated external signal found — and with a *free, un-optimized* embedding;
-  GenePT-style text embeddings (the PerturbQA standard) would likely be stronger. This is almost
-  certainly how a Track B entry reaches ~0.652 with the same fixed model: an LLM-guided kNN
-  aggregator, not better prompting.
+  that only reached 2% of rows by hand, and almost certainly how a Track B entry reaches ~0.652
+  with the same fixed model: an LLM-guided kNN aggregator, not better prompting. **Fusing it into
+  the agent (`examples/build_knn_fusion_submission.py`) moved the public LB 0.569 → 0.606
+  (+0.037)** — the largest, and the only LB-confirmed, gain in the project, matching its offline
+  projection (+0.034).
+- **GenePT text embeddings — the "obvious" upgrade — are *weaker* here, not stronger.** I
+  expected GenePT (the PerturbQA standard) to beat Geneformer's co-expression-flavored token
+  vectors. It doesn't: mean-centered GenePT-ada gives DIR ~0.58 and the larger text-embedding-3-
+  large only ~0.55, both below Geneformer's 0.63, and ensembling them in dilutes it. (Raw GenePT
+  cosine is also a trap — the embeddings are badly anisotropic, ~0.83 cosine between *any* two
+  genes, which without mean-centering inverts the direction signal to a spurious DIR 0.17.)
+  Mean-centering Geneformer itself lifts raw kNN DIR 0.629→0.644 but only +0.002 at the fusion
+  level — sub-noise, so left off to keep the 0.606 submission reproducible.
 
 The through-line (revised): the LLM's *parametric* DE knowledge is information-limited at ~0.55,
 and so is every signal derived from it (prompt, retrieval, network, categories) or from a
 foundation model's in-silico perturbation. But the competition's *intended* signal is
-embedding-**similarity transfer** across the disjoint split, and that is real and unused in our
-shipped submission — gene-similarity kNN gives DE ~0.55 and DIR ~0.62, the latter beating the
-LLM judge. The headroom toward the leaderboard is fusing that kNN aggregator into the agent (and
-upgrading the embedding to GenePT), not more prompting or post-processing.
+embedding-**similarity transfer** across the disjoint split: gene-similarity kNN gives DE ~0.55
+and DIR ~0.62 (beating the LLM judge), and fusing it into the agent took the public LB from 0.569
+to **0.606** — the one confirmed, decisive gain. Pushing further (GenePT, ensembling, weight/
+centering tweaks) hit diminishing, sub-noise returns; closing the rest of the way to ~0.652
+likely needs a better embedding than Geneformer/GenePT or a trained aggregator (GenePert-style),
+not more prompting or post-processing.
 
 Every claim above is backed by a disk-cached, paired offline benchmark
 (`examples/benchmark_track_b*.py`, run on a blinded train sample that simulates the

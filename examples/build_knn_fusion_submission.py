@@ -88,6 +88,9 @@ def load_emb():
     nm_ci = {str(k).upper(): v for k, v in nm.items()}
     with safe_open(str(SAFET), framework="numpy") as f:
         W = f.get_tensor("bert.embeddings.word_embeddings.weight")
+    # NB: mean-centering W (W -= W.mean(0)) lifts raw kNN DIR 0.629->0.644 but only
+    # +0.002 at the fusion level -- sub-noise, so left off to keep the LB-0.606
+    # submission reproducible. See README "What I learned".
     W = W / (np.linalg.norm(W, axis=1, keepdims=True) + 1e-9)
     return tok, nm_ci, W
 
