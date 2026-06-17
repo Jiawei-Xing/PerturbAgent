@@ -46,7 +46,7 @@ train and pools their knockdown label distribution (analogy, not memorization). 
   <img src="docs/img/track_b_architecture.png" alt="Track B adversarial-debate agent architecture" width="900">
 </p>
 
-**Result:** public leaderboard ≈ **0.619** on Track B.
+**Result:** public leaderboard ≈ **0.624** on Track B.
 
 ### Tracks A & C
 
@@ -191,10 +191,20 @@ Rigor here is mostly about *not* chasing noise:
   the agent at the SAME 0.5/0.5 weights as the 0.606 submission (only the embedding changes; weights
   NOT re-tuned on the 499 pool, to avoid the cross-fusion trap). Offline +0.002 over Geneformer
   fusion on the 499 pool (too small to resolve there); the real evidence is the n≈3k +0.029 DIR.
-  **CONFIRMED: public LB 0.619** (vs 0.606 Geneformer-only, +0.013) — the projection held, and this
-  is the new best pick. Cumulative Track B: 0.569 (base) → 0.606 (Geneformer kNN) → 0.619 (GF⊕scGPT
-  kNN). The takeaway sharpens: the kNN aggregator's ceiling is set by the gene EMBEDDING, and a
-  better expression embedding (scGPT > Geneformer) cashes out — the lever the leaderboard rewards.
+  **CONFIRMED: public LB 0.619** (vs 0.606 Geneformer-only, +0.013) — the projection held. The
+  takeaway sharpens: the kNN aggregator's ceiling is set by the gene EMBEDDING, and a better
+  expression embedding (scGPT > Geneformer) cashes out — the lever the leaderboard rewards.
+- **Re-weighting the fusion toward the kNN direction (w_dir 0.5→0.7) — the last high-power lever,
+  +0.005 LB.** The fused DIR was a 50/50 rank-blend of the LLM (DIR 0.58) and the kNN (DIR 0.66,
+  the stronger signal), which under-uses the kNN. I'd held 0.5/0.5 to avoid re-tuning on the noisy
+  499-row pool (the cross-fusion trap). The honest fix: run the prompt-only logprobs base (no tools
+  → no train leakage) on a stratified 2499-row train sample (1117 DE, 5× the benchmark), fuse with
+  the disjoint-LOO GF⊕scGPT kNN, and tune w_dir at high power. Optimum is a plateau at **w_dir≈0.7**
+  (fused DIR 0.661→0.677, paired **+0.016, CI [+0.004,+0.029], P(>0)=1.00**), while DE stays at its
+  own optimum w_de=0.5 (kNN DE 0.56 < LLM DE 0.58). Shipped at 0.5/0.7: **public LB 0.619 → 0.624**.
+  This is the clean contrast to the negatives — a *high-power* (n=1117, P=1.00) offline gain that
+  transferred, where the *499-pool* gains (cross-fusion, blend, seed ensemble) did not. Cumulative
+  Track B: 0.569 → 0.606 → 0.619 → **0.624**.
 - **Cell-type-matched scGPT does NOT help — richness beats tissue (`examples/scgpt_tissue_test.py`).**
   BMDMs are myeloid, so a blood-tuned scGPT embedding *should* transfer direction better. Falsified:
   LOO gene-sim DIR is whole-human 0.666 > blood 0.593 > brain 0.566 (control), and GF⊕blood (0.640)
@@ -538,18 +548,19 @@ uv run --extra serve python examples/track_c_finetune.py \
 
 Use the example scripts above or write your own. Each script outputs a zip file ready for Kaggle upload.
 
-> **My best Track B bundle: `outputs/track_b_scgpt_fusion/submission.zip`** — the seed-42 sharp
-> base fused with the **Geneformer⊕scGPT ensemble** gene-similarity kNN
-> (`examples/build_scgpt_fusion_submission.py`, w_de=w_dir=0.5). **Public LB 0.619**, the project
-> best. It upgrades the embedding behind the kNN from Geneformer alone to a GF⊕scGPT mean-of-cosines
-> ensemble, which raises the disjoint-LOO direction signal +0.029 (n≈3k, P(>0)=1.00); weights are
-> held at the 0.606 submission's 0.5/0.5 so the embedding is the only change. To regenerate:
-> `uv run --extra serve python examples/build_scgpt_fusion_submission.py` (needs `outputs/scgpt/`
-> = `vocab.json`+`best_model.pt` from HF `MohamedMabrouk/scGPT`).
+> **My best Track B bundle: `outputs/track_b_scgpt_fusion_wdir07/submission.zip`** — the seed-42
+> sharp base fused with the **Geneformer⊕scGPT ensemble** gene-similarity kNN at **w_de=0.5,
+> w_dir=0.7** (`examples/build_scgpt_fusion_submission.py --w-de 0.5 --w-dir 0.7`). **Public LB
+> 0.624**, the project best. Two validated upgrades over the 0.606 Geneformer kNN: (1) the embedding
+> — GF⊕scGPT mean-of-cosines raises disjoint-LOO direction +0.029 (n≈3k, P(>0)=1.00); (2) the
+> direction weight — because the kNN DIR (0.66) beats the LLM DIR (0.58), tuning w_dir on a 2499-row
+> high-power pool (1117 DE) picks 0.7 over 0.5 (+0.016 DIR, P(>0)=1.00) while DE stays at its own
+> optimum w_de=0.5. Needs `outputs/scgpt/` (`vocab.json`+`best_model.pt` from HF `MohamedMabrouk/scGPT`).
 >
 > Cumulative Track B: **0.569** (sharp base, `track_b_adversarial_sharp/`) → **0.606** (Geneformer
-> kNN, `track_b_adversarial_knn_fusion/`, `build_knn_fusion_submission.py`) → **0.619** (GF⊕scGPT
-> kNN). Each step swaps/adds only what was independently validated at high power.
+> kNN, `track_b_adversarial_knn_fusion/`) → **0.619** (GF⊕scGPT kNN, w_dir=0.5, `track_b_scgpt_fusion/`)
+> → **0.624** (w_dir=0.7). Each step swaps/adds only what was independently validated at high power —
+> the through-line that separated the wins from the four negatives below.
 >
 > *(Earlier negatives, kept for the record: the Geneformer×LLM DIR blend
 > `outputs/track_b_adversarial_blend/` scored 0.558 vs 0.569; the "cross base" fusion
