@@ -205,6 +205,14 @@ Rigor here is mostly about *not* chasing noise:
   This is the clean contrast to the negatives — a *high-power* (n=1117, P=1.00) offline gain that
   transferred, where the *499-pool* gains (cross-fusion, blend, seed ensemble) did not. Cumulative
   Track B: 0.569 → 0.606 → 0.619 → **0.624**.
+- **Bigger Geneformer (V2-316M) in the ensemble — real mechanism, but the fused gain was too small
+  to land (`examples/embed_ladder_test.py`).** The scale lever once more: GF-316M LOO DIR 0.646 >
+  104M's 0.631, and GF104⊕GF316⊕scGPT beats the shipped GF104⊕scGPT by +0.005 DIR at the *embedding*
+  level (CI [+0.001,+0.009], P(>0)=1.00, DE-neutral). But after fusion the gain diluted to +0.0043
+  DIR, **P(>0)=0.94** — just under the bar — and on the public LB it scored **0.621 vs 0.624**. The
+  −0.003 is within the noise band (not proof it hurts), but it sharpens the rule: the CI-clearing bar
+  must hold at the *fused* level (what ships), not just the raw-embedding level. GenePT (text axis) in
+  the ensemble was pure noise. 0.624 (w_dir=0.7) stands as the best, and the embedding ladder is done.
 - **Cell-type-matched scGPT does NOT help — richness beats tissue (`examples/scgpt_tissue_test.py`).**
   BMDMs are myeloid, so a blood-tuned scGPT embedding *should* transfer direction better. Falsified:
   LOO gene-sim DIR is whole-human 0.666 > blood 0.593 > brain 0.566 (control), and GF⊕blood (0.640)
