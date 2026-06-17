@@ -153,6 +153,18 @@ Rigor here is mostly about *not* chasing noise:
   saturates it, so a parametric model can't extract more. The remaining path to ~0.652 is a
   genuinely better gene representation (scGPT/UCE/co-expression from the actual screen) or the
   source data itself — not a better model on these features.
+- **The base LLM call is NOT the Track B bottleneck, and a prompt-only/logprobs base does not
+  help.** Prompted by a Track A prompt-only run hitting ~0.651 on the LB, I benchmarked the plain
+  zero-shot + A/B/C-softmax-logprobs base (`examples/track_a_logprobs.py`) on the *same* 499-row
+  pool as the debate agent: it scored mean 0.584 vs the agent's 0.571 — a tie (DIR CI [0.50,0.66]).
+  So 0.651 is not an architecture story; every base I measured sits at 0.57–0.58. A "cross base"
+  that took DE from the agent and DIR from the logprobs run (its 499-row DIR looked higher, 0.583
+  vs 0.550) then fused the kNN projected offline 0.616, but **on the public LB it scored 0.583 vs
+  the shipped 0.606 — a −0.023 loss.** The 499-row DIR edge was inside its (wide) CI; on the full
+  1813-row test the logprobs DIR is actually *worse* than the agent's. Same failure mode as the
+  Geneformer blend: a sub-noise, small-sample offline gain that the LB rejected. Lesson banked —
+  the agent's own DIR is the better one; don't swap bases. (`examples/build_cross_fusion_submission.py`,
+  kept as the negative-result record.)
 
 The through-line (revised): the LLM's *parametric* DE knowledge is information-limited at ~0.55,
 and so is every signal derived from it (prompt, retrieval, network, categories) or from a
