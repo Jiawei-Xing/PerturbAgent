@@ -191,7 +191,10 @@ Rigor here is mostly about *not* chasing noise:
   the agent at the SAME 0.5/0.5 weights as the 0.606 submission (only the embedding changes; weights
   NOT re-tuned on the 499 pool, to avoid the cross-fusion trap). Offline +0.002 over Geneformer
   fusion on the 499 pool (too small to resolve there); the real evidence is the n≈3k +0.029 DIR.
-  **Candidate awaiting LB** — projected ~0.61–0.62 (0.606 + a DIR-only lift on ~80% of rows).
+  **CONFIRMED: public LB 0.619** (vs 0.606 Geneformer-only, +0.013) — the projection held, and this
+  is the new best pick. Cumulative Track B: 0.569 (base) → 0.606 (Geneformer kNN) → 0.619 (GF⊕scGPT
+  kNN). The takeaway sharpens: the kNN aggregator's ceiling is set by the gene EMBEDDING, and a
+  better expression embedding (scGPT > Geneformer) cashes out — the lever the leaderboard rewards.
 
 The through-line (revised): the LLM's *parametric* DE knowledge is information-limited at ~0.55,
 and so is every signal derived from it (prompt, retrieval, network, categories) or from a
@@ -526,18 +529,24 @@ uv run --extra serve python examples/track_c_finetune.py \
 
 Use the example scripts above or write your own. Each script outputs a zip file ready for Kaggle upload.
 
-> **My best Track B bundle: `outputs/track_b_adversarial_knn_fusion/submission.zip`** — the
-> seed-42 sharp base fused with the gene-similarity kNN aggregator (`examples/build_knn_fusion_submission.py`,
-> w_de=w_dir=0.5). Offline (benchmark_b_dir, n=499/223 DE) it lifts **mean 0.568 → 0.602
-> (+0.034)**, improving *both* DE (0.591→0.611) and DIR (0.545→0.594). Unlike the earlier blend
-> this gain is **above** the public-LB noise band (±0.025), broad (84% coverage, both
-> components, monotonic in weight), and rests on a kNN signal independently LOO-validated at
-> high power (DIR 0.62, n≈2.9k). Un-blended fallback: `outputs/track_b_adversarial_sharp/submission.zip`
-> (public LB ~0.569). To regenerate: `uv run python examples/build_knn_fusion_submission.py`.
+> **My best Track B bundle: `outputs/track_b_scgpt_fusion/submission.zip`** — the seed-42 sharp
+> base fused with the **Geneformer⊕scGPT ensemble** gene-similarity kNN
+> (`examples/build_scgpt_fusion_submission.py`, w_de=w_dir=0.5). **Public LB 0.619**, the project
+> best. It upgrades the embedding behind the kNN from Geneformer alone to a GF⊕scGPT mean-of-cosines
+> ensemble, which raises the disjoint-LOO direction signal +0.029 (n≈3k, P(>0)=1.00); weights are
+> held at the 0.606 submission's 0.5/0.5 so the embedding is the only change. To regenerate:
+> `uv run --extra serve python examples/build_scgpt_fusion_submission.py` (needs `outputs/scgpt/`
+> = `vocab.json`+`best_model.pt` from HF `MohamedMabrouk/scGPT`).
 >
-> *(Earlier negatives, kept for the record: the Geneformer×LLM blend
-> `outputs/track_b_adversarial_blend/` scored 0.558 vs 0.569 on public — offline +0.009 was
-> below noise and validated in-sample; the seed ensemble likewise lost within noise.)*
+> Cumulative Track B: **0.569** (sharp base, `track_b_adversarial_sharp/`) → **0.606** (Geneformer
+> kNN, `track_b_adversarial_knn_fusion/`, `build_knn_fusion_submission.py`) → **0.619** (GF⊕scGPT
+> kNN). Each step swaps/adds only what was independently validated at high power.
+>
+> *(Earlier negatives, kept for the record: the Geneformer×LLM DIR blend
+> `outputs/track_b_adversarial_blend/` scored 0.558 vs 0.569; the "cross base" fusion
+> `outputs/track_b_cross_fusion/` scored 0.583 vs 0.606; the seed ensemble lost within noise. All
+> three were offline gains below public resolution and/or validated in-sample — the discipline that
+> kept 0.606/0.619 honest.)*
 
 ### Step 2: Verify your submission
 
