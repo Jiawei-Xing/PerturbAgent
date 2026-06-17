@@ -165,6 +165,33 @@ Rigor here is mostly about *not* chasing noise:
   Geneformer blend: a sub-noise, small-sample offline gain that the LB rejected. Lesson banked —
   the agent's own DIR is the better one; don't swap bases. (`examples/build_cross_fusion_submission.py`,
   kept as the negative-result record.)
+- **UCE / ESM2 protein embeddings for the kNN — NEGATIVE, don't swap (`examples/uce_knn_test.py`).**
+  Tested the one lever with real headroom: a better/orthogonal gene embedding feeding the
+  gene-similarity kNN. UCE represents each gene by the ESM2 embedding of its protein (native mouse,
+  443 MB, 22.3k symbols incl. the `Rik`/`Gm` genes Geneformer misses → 88% coverage vs Geneformer's
+  79%). On the disjoint-LOO pool (n≈3k DIR): raw UCE DIR was **0.424 — below chance (the GenePT
+  anisotropy artifact; ESM2 is highly anisotropic), fixed to 0.564 by mean-centering** — but still
+  weaker than Geneformer's 0.631. The **Geneformer⊕UCE ensemble** (mean of per-space cosines)
+  scored DIR 0.600, *worse* than Geneformer alone (paired −0.023, P(>0)=0.01): protein-family
+  similarity carries less direction signal than co-expression and dilutes rather than complements.
+  The coverage angle also fails — UCE DIR on the 10% GF-uncovered rows is 0.554, CI [0.492,0.618]
+  crossing chance, ≈ the LLM fallback those rows already get. Geneformer's co-expression embedding
+  stays the best available representation; the protein-sequence axis is the wrong one for direction
+  transfer.
+- **scGPT embeddings DO beat Geneformer for the kNN — first CI-clearing embedding lever
+  (`examples/uce_knn_test.py --emb scgpt`, `examples/build_scgpt_fusion_submission.py`).** scGPT
+  whole-human gene token embeddings (`encoder.embedding.weight`, 60697×512, expression-trained like
+  Geneformer but on more cells; `MohamedMabrouk/scGPT` for `vocab.json`+`best_model.pt`, uppercase
+  mouse-symbol match → 80% cov ≈ Geneformer's 79%). Disjoint-LOO gene-sim (n≈3k DIR): **scGPT DIR
+  0.659, GF⊕scGPT ensemble 0.662 vs Geneformer 0.631 — paired ensemble−GF +0.029, CI [+0.017,+0.040],
+  P(>0)=1.00.** DE unchanged (−0.001; the gain is direction, not detection). Unlike UCE this is
+  same-flavor (co-expression) but a strictly better one, and unlike the 499-row cross-fusion blip
+  this clears the CI on the high-power pool — the same LOO methodology that correctly called the
+  original kNN's +0.037 LB win. Built `outputs/track_b_scgpt_fusion/` = GF⊕scGPT ensemble fused into
+  the agent at the SAME 0.5/0.5 weights as the 0.606 submission (only the embedding changes; weights
+  NOT re-tuned on the 499 pool, to avoid the cross-fusion trap). Offline +0.002 over Geneformer
+  fusion on the 499 pool (too small to resolve there); the real evidence is the n≈3k +0.029 DIR.
+  **Candidate awaiting LB** — projected ~0.61–0.62 (0.606 + a DIR-only lift on ~80% of rows).
 
 The through-line (revised): the LLM's *parametric* DE knowledge is information-limited at ~0.55,
 and so is every signal derived from it (prompt, retrieval, network, categories) or from a

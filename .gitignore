@@ -46,3 +46,5 @@ outputs/geneformer_probe/model/
 outputs/geneformer_probe/ref/
 outputs/geneformer_probe/features_*.csv
 outputs/genept/
+outputs/uce/
+outputs/scgpt/
