@@ -89,6 +89,20 @@ def load_geneformer():
     return {s: W[tok[e]] for s, e in nm_ci.items() if e in tok}
 
 
+def load_geneformer316():
+    """Geneformer-V2-316M token embeddings (20275x1152, same V2 vocab as 104M).
+    Bigger = richer co-expression geometry; adds +0.005 LOO DIR over GF104⊕scGPT
+    (P(>0)=1.00 at the embedding level), DE-neutral. See examples/embed_ladder_test.py."""
+    tok = pickle.load(open(GF / "token_dictionary_gc104M.pkl", "rb"))
+    nm = pickle.load(open(GF / "gene_name_id_dict_gc104M.pkl", "rb"))
+    nm_ci = {str(k).upper(): v for k, v in nm.items()}
+    safet = ROOT / "outputs" / "geneformer_probe" / "model" / "Geneformer-V2-316M" / "model.safetensors"
+    with safe_open(str(safet), framework="numpy") as f:
+        W = f.get_tensor("bert.embeddings.word_embeddings.weight")
+    W = W / (np.linalg.norm(W, axis=1, keepdims=True) + 1e-9)
+    return {s: W[tok[e]] for s, e in nm_ci.items() if e in tok}
+
+
 def load_scgpt(center=False):
     import torch
     vocab = json.load(open(SCGPT / "vocab.json"))
@@ -178,10 +192,14 @@ def main():
     ap.add_argument("--w-de", type=float, default=None)
     ap.add_argument("--w-dir", type=float, default=None)
     ap.add_argument("--out", type=Path, default=ROOT / "outputs/track_b_scgpt_fusion")
+    ap.add_argument("--gf316", action="store_true",
+                    help="add Geneformer-V2-316M to the ensemble (LOO DIR +0.005, DE-neutral)")
     ap.add_argument("--validate", action="store_true")
     args = ap.parse_args()
 
     providers = [load_geneformer(), load_scgpt()]
+    if args.gf316:
+        providers.insert(1, load_geneformer316())
     w_de_best, w_dir_best = validate(providers, args.power)
     if args.validate:
         return
