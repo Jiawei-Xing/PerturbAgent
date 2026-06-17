@@ -195,6 +195,15 @@ Rigor here is mostly about *not* chasing noise:
   is the new best pick. Cumulative Track B: 0.569 (base) → 0.606 (Geneformer kNN) → 0.619 (GF⊕scGPT
   kNN). The takeaway sharpens: the kNN aggregator's ceiling is set by the gene EMBEDDING, and a
   better expression embedding (scGPT > Geneformer) cashes out — the lever the leaderboard rewards.
+- **Cell-type-matched scGPT does NOT help — richness beats tissue (`examples/scgpt_tissue_test.py`).**
+  BMDMs are myeloid, so a blood-tuned scGPT embedding *should* transfer direction better. Falsified:
+  LOO gene-sim DIR is whole-human 0.666 > blood 0.593 > brain 0.566 (control), and GF⊕blood (0.640)
+  is *worse* than the shipped GF⊕whole (0.668, paired −0.027, P(>0)=0.00); GF⊕whole⊕blood is a wash.
+  The lever is embedding **scale/richness** (whole-human scGPT = 33M pan-tissue cells → broader
+  gene-gene geometry), not cell-type specificity (tissue fine-tuning narrows the embedding). The
+  GF⊕scGPT-whole embedding in the 0.619 submission is the best expression representation available
+  here — the embedding ladder is near its top. (scFoundation, 50M cells, is the one untested scale
+  rung, but it's the full value-binned model rather than a clean gene-embedding matrix, so deferred.)
 
 The through-line (revised): the LLM's *parametric* DE knowledge is information-limited at ~0.55,
 and so is every signal derived from it (prompt, retrieval, network, categories) or from a

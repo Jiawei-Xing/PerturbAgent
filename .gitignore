@@ -48,3 +48,5 @@ outputs/geneformer_probe/features_*.csv
 outputs/genept/
 outputs/uce/
 outputs/scgpt/
+outputs/scgpt_blood/
+outputs/scgpt_brain/
