@@ -82,6 +82,54 @@ _SHARP_JUDGE = _os.environ.get("MLGENX_SHARP_JUDGE", "0") == "1"
 # overridable per-call via predict_row(dir_sharp=...).
 _SHARP_DIR = _os.environ.get("MLGENX_SHARP_DIR", "0") == "1"
 
+# When MLGENX_FEWSHOT_K>0 (or predict_row(fewshot_k=...)), the DE judge is given
+# K labeled (perturbation, target) reference examples from THIS screen, drawn
+# from MLGENX_TRAIN_CSV. In the benchmark/test that file is the BLINDED train
+# (every row sharing a sampled/test pert OR gene removed), so the examples are
+# disjoint-safe -- no gene-identity leak, only task-format + base-rate + pattern
+# priors. Zero-shot by default. Untested DE lever (the LLM DE is the dominant DE
+# signal and DE is the bottleneck).
+_FEWSHOT_K = int(_os.environ.get("MLGENX_FEWSHOT_K", "0"))
+_FEWSHOT_CACHE: dict = {}
+
+
+def _build_fewshot_de_block(k: int, seed: int) -> str:
+    """K stratified (half unaffected / half DE) labeled examples from the blinded
+    train, formatted to calibrate the DE judge. Cached per (k, seed, file)."""
+    if k <= 0:
+        return ""
+    path = _os.environ.get("MLGENX_TRAIN_CSV", str(ROOT / "data" / "train.csv"))
+    key = (k, seed, path)
+    if key in _FEWSHOT_CACHE:
+        return _FEWSHOT_CACHE[key]
+    import csv as _csv
+    import random as _random
+    by: dict[str, list] = {"up": [], "down": [], "none": []}
+    with open(path) as fh:
+        for r in _csv.DictReader(fh):
+            if r.get("label") in by:
+                by[r["label"]].append(r)
+    rng = _random.Random(seed)
+    n_none = k // 2
+    none_pick = rng.sample(by["none"], min(n_none, len(by["none"])))
+    de_pool = by["up"] + by["down"]
+    de_pick = rng.sample(de_pool, min(k - n_none, len(de_pool)))
+    picks = none_pick + de_pick
+    rng.shuffle(picks)
+    lines = []
+    for r in picks:
+        out = "unaffected" if r["label"] == "none" else "differentially expressed"
+        lines.append(f"- {r['pert']} knockdown -> {r['gene']} : {out}")
+    block = (
+        "Reference outcomes from THIS screen (different perturbation/target pairs, "
+        "for calibrating the ~45% base rate and the kinds of pairs that are or are "
+        "not affected -- reason by analogy, do not assume your target matches any "
+        "listed gene):\n" + "\n".join(lines) + "\n\n"
+    )
+    _FEWSHOT_CACHE[key] = block
+    return block
+
+
 TEST_CSV = ROOT / "data" / "test.csv"
 
 # Neutral fallbacks (training base rates) for rows where a judge returns no
@@ -556,6 +604,7 @@ def predict_row(
     dossier: Optional[tuple[Any, ...]] = None,
     seed: int = 42,
     dir_sharp: Optional[bool] = None,
+    fewshot_k: Optional[int] = None,
 ) -> dict:
     """Run the full debate for one (pert, gene). Returns a result dict.
 
@@ -624,8 +673,10 @@ def predict_row(
         de_sys = JUDGE_DE_SYSTEM_NUMERIC_SHARP
     else:
         de_sys = JUDGE_DE_SYSTEM_NUMERIC
+    fs_k = _FEWSHOT_K if fewshot_k is None else fewshot_k
     de_user = (
-        f"{base_user}\n\n=== EFFECT brief ===\n{effect}\n\n"
+        _build_fewshot_de_block(fs_k, seed)
+        + f"{base_user}\n\n=== EFFECT brief ===\n{effect}\n\n"
         f"=== NULL brief ===\n{null}"
     )
     de_content, de_lp, tk = chat(

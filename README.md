@@ -220,20 +220,63 @@ Rigor here is mostly about *not* chasing noise:
   The lever is embedding **scale/richness** (whole-human scGPT = 33M pan-tissue cells → broader
   gene-gene geometry), not cell-type specificity (tissue fine-tuning narrows the embedding). The
   GF⊕scGPT-whole embedding in the 0.619 submission is the best expression representation available
-  here — the embedding ladder is near its top. (scFoundation, 50M cells, is the one untested scale
-  rung, but it's the full value-binned model rather than a clean gene-embedding matrix, so deferred.)
+  here — the embedding ladder is near its top.
+- **scFoundation closes the embedding ladder (`examples/scfoundation_knn_test.py`).** The 50M-cell
+  scale rung, finally tested. Its only static per-gene vector is the gene2vec-initialized `pos_emb`
+  (the full model's gene reps are contextual), which is **chance alone (DIR 0.513)** and adds only
+  **+0.0026 DIR, P(>0)=0.96** to GF⊕scGPT — the same borderline-dilution profile as GF-316M, landing
+  just under the fused bar. **GF⊕scGPT is confirmed the top of the expression-embedding ladder.**
+- **A macrophage-context perturbation foundation model recovers DE — but redundantly
+  (`examples/state_knn_fusion_test.py`, `examples/state_test_regime_test.py`).** The earlier STATE
+  spike fed H1 stem-cell controls and read chance; STATE's transition model is context-conditional, so
+  feeding a human-macrophage control population moved STATE's *own* DE 0.501 → **0.530 (CI clears
+  chance)** — the first foundation-model DE signal in the project. But the kNN already scores DE 0.550,
+  and fusing STATE in moves it **+0.000 (P=0.54)**: both just encode "essential-perturbation → broad
+  transcriptional magnitude," not the (pert, gene) interaction. The tempting DIR signal (0.711 at
+  n=210) was small-sample noise — **0.498 at n=2831**. And it does not help on the disjoint *test*
+  regime either: stratifying by neighbour support, STATE is chance in every stratum, so being
+  label-independent buys nothing where the kNN's transfer is weak.
+- **Public perturbation-screen retrieval (LINCS L1000 CRISPR-KO) is chance for DE.**
+  The directly-on-target external lookup — genome-wide
+  knockout signatures, "perturbation → up/down genes" — covers 38% of rows yet scores **DE AUROC 0.505**:
+  genes that move under a knockout *in human cell lines* are hit at 0.09 on true-DE rows vs 0.07 on
+  true-none (flat). Cross-cell-line / cross-species transfer destroys the (pert, gene) interaction —
+  the same wall as STATE and the GRN.
+- **Support-aware kNN DE — a real, understood flaw in the DE signal, but sub-LB-resolution
+  (`examples/support_aware_knn_de.py`).** The gene-only kNN DE prior washes out on dense-neighbourhood
+  hub genes (abundant lncRNAs + macrophage markers): DE AUROC falls monotonically **0.591 (sparse) →
+  0.359 (dense)**. The fix is *flatter* weighting (power 1, not sharper) plus deferring hub genes toward
+  neutral — standalone DE 0.549 → 0.555 (P(>0)=1.00), fused +0.0029 (P(>0)=0.95). But on the public LB
+  it scored **0.622 vs 0.624** — borderline, landed within noise on the wrong side, same as GF-316M.
+  Wired behind `--support-aware-de` (default off; the production path is byte-identical).
+- **Fusion-stage cleverness is exhausted — LLM-guided kNN, per-gene weights, and few-shot all noise.**
+  (a) *LLM-guided neighbour selection* (`examples/func_guided_knn_gate.py`): replacing embedding cosine
+  with functional (GO-BP/Reactome) similarity is strictly *worse* (DIR 0.66 → 0.52–0.56) — the
+  co-expression embedding is already a better functional map than the LLM's pathway-level knowledge, so
+  the "LLM-guided kNN aggregator" route has no headroom. (b) *Per-gene support-adaptive fusion weights*
+  (`examples/per_gene_weight_test.py`): +0.0008 / −0.0015 = noise; the fixed rank-blend is already
+  near-optimal, and on hub genes *both* signals are weak so there is no clean handoff to route. (c)
+  *Few-shot DE judge* (12 disjoint-safe labeled examples, `examples/benchmark_track_b_fewshot.py`):
+  paired DE **−0.010, P(>0)=0.36**, and the true-DE/true-none P_DE separation *shrank* — disjoint
+  examples can't inject the gene-specific interaction. Confirms the LLM's DE is **knowledge-capped**
+  (every prompt/architecture base converges to ~0.57–0.58), not prompt-limited.
 
 The through-line (revised): the LLM's *parametric* DE knowledge is information-limited at ~0.55,
 and so is every signal derived from it (prompt, retrieval, network, categories) or from a
 foundation model's in-silico perturbation. But the competition's *intended* signal is
 embedding-**similarity transfer** across the disjoint split: gene-similarity kNN gives DE ~0.55
 and DIR ~0.62 (beating the LLM judge), and fusing it into the agent took the public LB from 0.569
-to **0.606** — the one confirmed, decisive gain. Pushing further hit diminishing, sub-noise returns:
-GenePT embeddings are weaker than Geneformer, a trained GenePert-style classifier only ties the
-kNN, and weight/centering tweaks are below the LB noise band. The embedding is the ceiling;
-closing the rest of the way to ~0.652 needs a genuinely better gene representation (scGPT / UCE /
-co-expression from the screen) or the source screen data — not more prompting, post-processing,
-or modeling on these features.
+to **0.606**, then a better embedding (scGPT) and a high-power weight re-tune carried it to **0.624**
+— the confirmed, decisive gains. Everything past that hit diminishing, sub-noise returns, and a final
+systematic sweep closed the remaining levers from every angle: a macrophage-context perturbation
+foundation model (STATE) and a public CRISPR-KO screen (LINCS) both recover only the redundant
+essential-gene magnitude, not the (pert, gene) interaction; scFoundation confirms GF⊕scGPT as the top
+of the embedding ladder; and every fusion-stage and prompt idea (support-adaptive DE, LLM-guided
+neighbour selection, per-gene weights, few-shot examples) returned noise or a sub-resolution LB loss.
+The conclusion is now well-supported from many directions: **DE is information-limited and DIR is
+embedding-saturated**, so 0.624 sits at or very near this task's information ceiling, and the ~0.028
+gap to the public leader is about one LB standard error. The only lever not disproven is the held-out
+source screen itself — outside the legitimate-signal regime, not a real submission option.
 
 Every claim above is backed by a disk-cached, paired offline benchmark
 (`examples/benchmark_track_b*.py`, run on a blinded train sample that simulates the
@@ -253,6 +296,13 @@ disjoint split) — I never burned a full leaderboard submission to test a hypot
 | `examples/knn_transfer_test.py` | gene/pert embedding-similarity kNN transfer (the strongest lever: DIR ~0.62) |
 | `examples/build_knn_fusion_submission.py` | fuse the gene-sim kNN aggregator into the LLM agent (LB 0.569→0.606) |
 | `examples/trained_classifier_test.py` | GenePert-style trained classifier (ties the kNN, no gain) |
+| `examples/build_scgpt_fusion_submission.py` | GF⊕scGPT kNN fusion (LB 0.624); `--support-aware-de` flag (off) |
+| `examples/scfoundation_knn_test.py` | scFoundation embedding for the kNN (closes the ladder, negative) |
+| `examples/state_knn_fusion_test.py`, `state_test_regime_test.py` | STATE macrophage-context FM vs the kNN (redundant; no test-regime gain) |
+| `examples/support_aware_knn_de.py`, `fused_de_support_test.py` | hub-gene kNN-DE washout diagnosis + support-aware fix (sub-resolution) |
+| `examples/func_guided_knn_gate.py` | functional (GO/Reactome) vs embedding kNN — LLM-guided aggregator gate (negative) |
+| `examples/per_gene_weight_test.py` | per-gene support-adaptive fusion weights (noise) |
+| `examples/benchmark_track_b_fewshot.py` | paired few-shot DE-judge A/B (negative; LLM DE is knowledge-capped) |
 | `examples/build_ensemble_submission.py` | seed-ensemble merger (stdlib only) |
 | `examples/track_a_logprobs.py` | logprob-softmax Track A variant |
 | `docs/track_b_architecture.md` | architecture write-up |

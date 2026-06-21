@@ -124,8 +124,18 @@ def gene_mat(genes, E):
     return M, c
 
 
-def ensemble_priors(q_pert, q_gene, kb, providers, power=2.0, disjoint=False):
-    """Mean-of-per-space-cosine gene-similarity kNN priors for query rows vs kb."""
+def ensemble_priors(q_pert, q_gene, kb, providers, power=2.0, disjoint=False,
+                    de_power=None, de_neutralize=0.0):
+    """Mean-of-per-space-cosine gene-similarity kNN priors for query rows vs kb.
+
+    Default: DE and DIR both use `power` (the 0.624 production path, untouched).
+    Support-aware DE (de_power set): the DE prior is gene-ONLY so it's a per-gene
+    DE-propensity that washes out / inverts on dense-neighbourhood hub genes
+    (abundant lncRNAs + macrophage markers) -- DE AUROC falls monotonically
+    0.591(sparse)->0.359(dense). Fix = a FLATTER DE weighting (de_power=1) plus
+    shrinking high-support rows toward neutral 0.5 (de_neutralize), deferring hub
+    genes to the LLM. DIR is left on `power`. See examples/support_aware_knn_de.py
+    (standalone DE +0.0054 P=1.00; fused +0.0029 P=0.95, DIR-neutral)."""
     kb_g = kb["gene"].to_numpy(); kb_p = kb["pert"].to_numpy()
     isde = (kb["label"].to_numpy() != "none").astype(float)
     isup = (kb["label"].to_numpy() == "up").astype(float)
@@ -137,14 +147,25 @@ def ensemble_priors(q_pert, q_gene, kb, providers, power=2.0, disjoint=False):
         m = np.outer(cq, ck).astype(np.float32)
         sims += s * m; cnt += m
     covq = cnt.sum(1) > 0
-    sim = np.where(cnt > 0, sims / np.maximum(cnt, 1), 0.0) ** power
+    msim = np.where(cnt > 0, sims / np.maximum(cnt, 1), 0.0)   # mean cosine, pre-power
     if disjoint:
         same = (q_pert[:, None] == kb_p[None, :]) | (q_gene[:, None] == kb_g[None, :])
-        sim[same] = 0.0
+        msim = np.where(same, 0.0, msim)
+    sim = msim ** power
     wsum = sim.sum(1)
     prior_de = np.where(wsum > 0, (sim * isde).sum(1) / np.where(wsum > 0, wsum, 1), np.nan)
     wde = sim * isde; wdesum = wde.sum(1)
     prior_up = np.where(wdesum > 0, (wde * isup).sum(1) / np.where(wdesum > 0, wdesum, 1), np.nan)
+    if de_power is not None:                                   # support-aware DE override
+        simde = msim ** de_power
+        wsumde = simde.sum(1)
+        prior_de = np.where(wsumde > 0, (simde * isde).sum(1) / np.where(wsumde > 0, wsumde, 1), np.nan)
+        if de_neutralize > 0:
+            supp = np.where(covq, wsumde, np.nan)
+            lo = np.nanmin(supp); hi = np.nanmax(supp)
+            sr = (supp - lo) / (hi - lo + 1e-9)
+            a = 1.0 - de_neutralize * sr                       # influence shrinks with support
+            prior_de = a * prior_de + (1 - a) * 0.5
     prior_de[~covq] = np.nan; prior_up[~covq] = np.nan
     return prior_de, prior_up
 
@@ -155,15 +176,24 @@ def fuse(p_llm, prior, w):
     return out
 
 
-def validate(providers, power):
+def validate(providers, power, de_power=None, de_neutralize=0.0):
     raw = json.loads((ROOT / "outputs/benchmark_b_dir/preds.json").read_text())
     pde = {k.split("|", 1)[1]: v[2] for k, v in raw.items() if k.startswith("dir_base|")}
     pup = {k.split("|", 1)[1]: v[3] for k, v in raw.items() if k.startswith("dir_base|")}
     samp = pd.read_csv(ROOT / "outputs/benchmark_b_dir/sample.csv")
     samp = samp[samp["id"].isin(pde)].reset_index(drop=True)
     kb = pd.read_csv(ROOT / "data/train.csv")
+    if de_power is not None:
+        base_pde, _ = ensemble_priors(samp["pert"].to_numpy(), samp["gene"].to_numpy(),
+                                      kb, providers, power=power, disjoint=True)
+        lab0 = samp["label"].to_numpy(); is_de0 = (lab0 != "none").astype(int)
+        print(f"[validate] support-aware DE: default-DE {auroc(is_de0, np.nan_to_num(base_pde, nan=0.5)):.3f} ", end="")
     prior_de, prior_up = ensemble_priors(samp["pert"].to_numpy(), samp["gene"].to_numpy(),
-                                         kb, providers, power=power, disjoint=True)
+                                         kb, providers, power=power, disjoint=True,
+                                         de_power=de_power, de_neutralize=de_neutralize)
+    if de_power is not None:
+        lab0 = samp["label"].to_numpy(); is_de0 = (lab0 != "none").astype(int)
+        print(f"-> support-aware-DE {auroc(is_de0, np.nan_to_num(prior_de, nan=0.5)):.3f} (raw kNN, pre-fusion)")
     lab = samp["label"].to_numpy(); is_de = (lab != "none").astype(int); dem = lab != "none"
     is_up = (lab[dem] == "up").astype(int)
     pde_llm = np.array([pde[i] for i in samp["id"]]); pup_llm = np.array([pup[i] for i in samp["id"]])
@@ -194,13 +224,18 @@ def main():
     ap.add_argument("--out", type=Path, default=ROOT / "outputs/track_b_scgpt_fusion")
     ap.add_argument("--gf316", action="store_true",
                     help="add Geneformer-V2-316M to the ensemble (LOO DIR +0.005, DE-neutral)")
+    ap.add_argument("--support-aware-de", action="store_true",
+                    help="flatter DE weighting (power=1) + shrink hub-gene rows toward neutral; "
+                         "DIR untouched. Standalone DE +0.0054 P=1.00, fused +0.0029 P=0.95 (DIR-neutral)")
     ap.add_argument("--validate", action="store_true")
     args = ap.parse_args()
 
+    de_power = 1.0 if args.support_aware_de else None
+    de_neutralize = 1.0 if args.support_aware_de else 0.0
     providers = [load_geneformer(), load_scgpt()]
     if args.gf316:
         providers.insert(1, load_geneformer316())
-    w_de_best, w_dir_best = validate(providers, args.power)
+    w_de_best, w_dir_best = validate(providers, args.power, de_power=de_power, de_neutralize=de_neutralize)
     if args.validate:
         return
     w_de = args.w_de if args.w_de is not None else w_de_best
@@ -219,7 +254,8 @@ def main():
 
     kb = pd.read_csv(ROOT / "data/train.csv")
     prior_de, prior_up = ensemble_priors(sub["pert"].to_numpy(), sub["gene"].to_numpy(),
-                                         kb, providers, power=args.power, disjoint=False)
+                                         kb, providers, power=args.power, disjoint=False,
+                                         de_power=de_power, de_neutralize=de_neutralize)
     fde = fuse(pde, prior_de, w_de); fup = fuse(pup, prior_up, w_dir)
 
     out = sub.copy()

@@ -50,3 +50,6 @@ outputs/uce/
 outputs/scgpt/
 outputs/scgpt_blood/
 outputs/scgpt_brain/
+outputs/pert_db/
+outputs/scfoundation/
+outputs/func_db/
