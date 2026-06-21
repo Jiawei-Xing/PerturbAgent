@@ -235,7 +235,10 @@ Rigor here is mostly about *not* chasing noise:
   transcriptional magnitude," not the (pert, gene) interaction. The tempting DIR signal (0.711 at
   n=210) was small-sample noise — **0.498 at n=2831**. And it does not help on the disjoint *test*
   regime either: stratifying by neighbour support, STATE is chance in every stratum, so being
-  label-independent buys nothing where the kNN's transfer is weak.
+  label-independent buys nothing where the kNN's transfer is weak. Submitted anyway to read the real
+  number (`examples/build_state_fusion_submission.py`, STATE DE rank-blended into the 0.624 sub's DE
+  side, DIR untouched): **public LB 0.623 vs 0.624** — within noise, on the wrong side, matching the
+  +0.000 offline projection. The redundant-DE verdict holds on the real test set.
 - **Public perturbation-screen retrieval (LINCS L1000 CRISPR-KO) is chance for DE.**
   The directly-on-target external lookup — genome-wide
   knockout signatures, "perturbation → up/down genes" — covers 38% of rows yet scores **DE AUROC 0.505**:
